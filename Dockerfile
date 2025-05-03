@@ -28,6 +28,10 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Копируем пользовательскую конфигурацию Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Добавляем здоровья для контейнера
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget -qO- http://localhost/health || exit 1
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"] 

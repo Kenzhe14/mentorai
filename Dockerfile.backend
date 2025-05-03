@@ -19,11 +19,14 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Устанавливаем необходимые зависимости
-RUN apk --no-cache add ca-certificates tzdata
+# Устанавливаем необходимые зависимости включая wget для health check
+RUN apk --no-cache add ca-certificates tzdata wget
 
 # Копируем бинарный файл из стадии сборки
 COPY --from=builder /app/mentor-server .
+
+# Копируем .env файл если он существует
+COPY server-go/.env ./.env
 
 # Создаем директорию для загрузок
 RUN mkdir -p /app/uploads
@@ -33,6 +36,10 @@ COPY --from=builder /app/config ./config
 
 # Порт, на котором будет работать приложение
 EXPOSE 5000
+
+# Healthcheck для проверки работоспособности приложения
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD wget -qO- http://localhost:5000/health || exit 1
 
 # Запускаем приложение
 CMD ["./mentor-server"] 

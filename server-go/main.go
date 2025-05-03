@@ -47,14 +47,17 @@ func main() {
 
 	// Configure CORS
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
 
-	// Register routes
+	// Register health check routes first (no auth required)
+	routes.RegisterHealthRoutes(router)
+	
+	// Register other routes
 	routes.RegisterAuthRoutes(router, db)
 	routes.RegisterOnboardingRoutes(router, db)
 	routes.RegisterWebRoutes(router, db)

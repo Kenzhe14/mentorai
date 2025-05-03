@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import mainLogo from "../assets/Logo.svg";
+import mainLogo from "../assets/logo.svg";
 import { FaGithub, FaLinkedin, FaTwitter, FaGlobe, FaTimes, FaPlus } from "react-icons/fa";
 import { useAuth } from "../components/authContext";
 

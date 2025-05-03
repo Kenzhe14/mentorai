@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import mainLogo from "../assets/Logo.svg";
+import mainLogo from "../assets/logo.svg";
 import { FaGoogle, FaPhoneAlt, FaApple, FaEnvelope } from "react-icons/fa";
 import { useAuth } from "../components/authContext";
 
