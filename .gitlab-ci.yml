@@ -1,0 +1,191 @@
+stages:
+  - validate
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+# Cache dependencies between jobs
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - server-go/.go-cache/
+
+# Lint frontend code
+frontend_lint:
+  stage: validate
+  image: node:20-alpine
+  script:
+    - yarn install --frozen-lockfile
+    - yarn lint
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+
+# Lint backend code
+backend_lint:
+  stage: validate
+  image: golang:1.20-alpine
+  script:
+    - cd server-go
+    - go install golang.org/x/lint/golint@latest
+    - golint -set_exit_status ./...
+    - go vet ./...
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+
+# Build and push backend Docker image
+build_backend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG -f Dockerfile.backend .
+    - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG
+    - if [ "$CI_COMMIT_BRANCH" = "main" ] || [ "$CI_COMMIT_BRANCH" = "master" ]; then
+    -   docker tag $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG $CI_REGISTRY_IMAGE/backend:latest
+    -   docker push $CI_REGISTRY_IMAGE/backend:latest
+    - fi
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+    - /^release-.*$/
+
+# Build and push frontend Docker image
+build_frontend:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG -f Dockerfile.frontend .
+    - docker push $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG
+    - if [ "$CI_COMMIT_BRANCH" = "main" ] || [ "$CI_COMMIT_BRANCH" = "master" ]; then
+    -   docker tag $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG $CI_REGISTRY_IMAGE/frontend:latest
+    -   docker push $CI_REGISTRY_IMAGE/frontend:latest
+    - fi
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+    - /^release-.*$/
+
+# Test backend
+test_backend:
+  stage: test
+  image: golang:1.20-alpine
+  services:
+    - postgres:14-alpine
+  variables:
+    POSTGRES_DB: mentordb_test
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres_password
+    DB_HOST: postgres
+    DB_NAME: mentordb_test
+    DB_USER: postgres
+    DB_PASSWORD: postgres_password
+    DB_PORT: 5432
+  script:
+    - cd server-go
+    - go test -v ./...
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+
+# Test frontend
+test_frontend:
+  stage: test
+  image: node:20-alpine
+  script:
+    - yarn install --frozen-lockfile
+    - yarn test --ci
+  only:
+    - merge_requests
+    - master
+    - main
+    - develop
+
+# Deploy to staging environment
+deploy_staging:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: ssh://deployer@$STAGING_SERVER
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$STAGING_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $STAGING_SERVER >> ~/.ssh/known_hosts
+  script:
+    - echo "Deploying to staging server..."
+    - scp docker-compose.yml deployer@$STAGING_SERVER:~/mentor-app/
+    - scp .env.staging deployer@$STAGING_SERVER:~/mentor-app/.env
+    - ssh deployer@$STAGING_SERVER "cd ~/mentor-app && 
+      docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+      docker pull $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_SLUG &&
+      docker pull $CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_REF_SLUG &&
+      docker-compose down &&
+      docker-compose up -d"
+    - echo "Deployment complete!"
+  environment:
+    name: staging
+    url: https://staging.example.com
+  only:
+    - develop
+  when: manual
+
+# Deploy to production environment
+deploy_production:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: ssh://deployer@$PRODUCTION_SERVER
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$PRODUCTION_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $PRODUCTION_SERVER >> ~/.ssh/known_hosts
+  script:
+    - echo "Deploying to production server..."
+    - scp docker-compose.prod.yml deployer@$PRODUCTION_SERVER:~/mentor-app/docker-compose.yml
+    - scp .env.production deployer@$PRODUCTION_SERVER:~/mentor-app/.env
+    - ssh deployer@$PRODUCTION_SERVER "cd ~/mentor-app && 
+      docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+      docker pull $CI_REGISTRY_IMAGE/backend:latest &&
+      docker pull $CI_REGISTRY_IMAGE/frontend:latest &&
+      docker-compose down &&
+      docker-compose up -d"
+    - echo "Deployment complete!"
+  environment:
+    name: production
+    url: https://example.com
+  only:
+    - master
+    - main
+    - tags
+  when: manual 

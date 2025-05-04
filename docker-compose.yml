@@ -1,61 +1,66 @@
 version: '3.8'
 
 services:
-  # Frontend сервис
+  # Backend service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      - PORT=5000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=mentoruser
+      - DB_PASSWORD=mentoruserpassword
+      - DB_NAME=mentordb
+      - JWT_SECRET=changethissecretinproduction
+      - ENVIRONMENT=development
+    volumes:
+      - backend_uploads:/app/uploads
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    networks:
+      - mentor_network
+
+  # Frontend service
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
       - backend
     networks:
-      - app-network
-    environment:
-      - NODE_ENV=production
+      - mentor_network
 
-  # Backend сервис
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    ports:
-      - "5001:5001"
-    depends_on:
-      - postgres
-    networks:
-      - app-network
-    environment:
-      - PORT=5001
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_SSL_MODE=disable
-      - JWT_SECRET=${JWT_SECRET}
-    volumes:
-      - backend-data:/app/uploads
-
-  # PostgreSQL база данных
+  # Database service
   postgres:
-    image: postgres:17
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=mentoruser
+      - POSTGRES_PASSWORD=mentoruserpassword
+      - POSTGRES_DB=mentordb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
-      - app-network
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mentor_network
 
+# Define networks
 networks:
-  app-network:
+  mentor_network:
     driver: bridge
 
+# Define volumes
 volumes:
-  postgres-data:
-  backend-data: 
+  postgres_data:
+    driver: local
+  backend_uploads:
+    driver: local 
