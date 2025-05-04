@@ -31,7 +31,24 @@ const RoadmapWorm = ({
     }
     
     // Check if previous topic is completed
-    return topicProgress[prevTopicName] === "completed";
+    return topicProgress[prevTopicName]?.completed === true;
+  };
+
+  // Function to determine the progress status of a topic
+  const getTopicStatus = (topicName) => {
+    if (!topicProgress[topicName]) {
+      return "not-started";
+    }
+    
+    if (topicProgress[topicName].completed) {
+      return "completed";
+    }
+    
+    if (topicProgress[topicName].viewed) {
+      return "in-progress";
+    }
+    
+    return "not-started";
   };
 
   // Flatten the rows to get topic indices in the original roadmap
@@ -56,7 +73,7 @@ const RoadmapWorm = ({
                 }
 
                 // Determine the progress status for this topic
-                const progress = topicProgress[topicName] || "not-started";
+                const progress = getTopicStatus(topicName);
                 let statusColor = "bg-dark-400 dark:bg-dark-600"; // default - not started
                 
                 if (progress === "completed") {

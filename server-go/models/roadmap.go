@@ -4,26 +4,27 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+
 	"gorm.io/gorm"
 )
 
 // Roadmap represents a learning roadmap
 type Roadmap struct {
 	gorm.Model
-	Topic     string        `gorm:"size:100;not null" json:"topic"`
-	UserID    uint          `json:"userId"`
-	User      User          `gorm:"foreignKey:UserID" json:"-"`
-	Steps     []RoadmapStep `gorm:"foreignKey:RoadmapID" json:"steps"`
+	Topic  string        `gorm:"size:100;not null" json:"topic"`
+	UserID uint          `json:"userId"`
+	User   User          `gorm:"foreignKey:UserID" json:"-"`
+	Steps  []RoadmapStep `gorm:"foreignKey:RoadmapID" json:"steps"`
 }
 
 // RoadmapStep represents a step in a learning roadmap
 type RoadmapStep struct {
 	gorm.Model
-	Name       string `gorm:"size:100;not null" json:"name"`
-	Order      int    `gorm:"not null" json:"order"`
-	RoadmapID  uint   `json:"roadmapId"`
-	Roadmap    Roadmap `gorm:"foreignKey:RoadmapID" json:"-"`
-	Completed  bool    `gorm:"not null;default:false" json:"completed"`
+	Name      string  `gorm:"size:100;not null" json:"name"`
+	Order     int     `gorm:"not null" json:"order"`
+	RoadmapID uint    `json:"roadmapId"`
+	Roadmap   Roadmap `gorm:"foreignKey:RoadmapID" json:"-"`
+	Completed bool    `gorm:"not null;default:false" json:"completed"`
 }
 
 // RecommendedTopic represents a personalized recommended topic
@@ -53,9 +54,9 @@ func (rt *RecommendedTopics) Scan(value interface{}) error {
 // PersonalizedContent represents content personalized for a user
 type PersonalizedContent struct {
 	gorm.Model
-	UserID            uint               `json:"userId"`
-	User              User               `gorm:"foreignKey:UserID" json:"-"`
-	ContentType       string             `gorm:"size:50;not null" json:"contentType"`
-	RecommendedTopics RecommendedTopics  `gorm:"type:jsonb" json:"recommendedTopics,omitempty"`
-	Content           string             `gorm:"type:text" json:"content,omitempty"`
-} 
+	UserID            uint              `json:"userId"`
+	User              User              `gorm:"foreignKey:UserID" json:"-"`
+	ContentType       string            `gorm:"size:50;not null" json:"contentType"`
+	RecommendedTopics RecommendedTopics `gorm:"type:jsonb" json:"recommendedTopics,omitempty"`
+	Content           string            `gorm:"type:text" json:"content,omitempty"`
+}

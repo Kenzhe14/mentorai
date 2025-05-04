@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import mainLogo from "../assets/logo.svg";
 import { FaGithub, FaLinkedin, FaTwitter, FaGlobe, FaTimes, FaPlus } from "react-icons/fa";
 import { useAuth } from "../components/authContext";
 
 const MentorRegister = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { registerMentor, currentUser, setAuth } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -32,7 +31,6 @@ const MentorRegister = () => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [skill, setSkill] = useState("");
   const [specialization, setSpecialization] = useState("");
 

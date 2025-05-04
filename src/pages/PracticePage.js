@@ -3,6 +3,10 @@ import "../index.css";
 import LeftBar from "../components/sidebar";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { CheckCircle, XCircle, ArrowLeft, ArrowRight, HelpCircle, Award, Lock } from "lucide-react";
+import axios from "axios";
+
+// API URL constant
+const API_URL = "http://localhost:5000";
 
 function PracticePage() {
   const { topic } = useParams();
@@ -19,6 +23,7 @@ function PracticePage() {
   const [roadmap, setRoadmap] = useState([]);
   const [isAccessible, setIsAccessible] = useState(true);
   const [previousTopic, setPreviousTopic] = useState(null);
+  const [showCompletionMessage, setShowCompletionMessage] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -333,10 +338,45 @@ function PracticePage() {
   };
 
   // Complete practice session
-  const completePractice = () => {
-    if (currentLecture) {
-      updateTopicProgress(currentLecture.title, "completed");
-      setPracticeCompleted(true);
+  const completePractice = async () => {
+    try {
+      // Send completion status to backend
+      await axios.post(`${API_URL}/en/api/web/complete-practice`, {
+        topic: topic
+      });
+      
+      // Update progress
+      const updatedProgress = { ...topicProgress };
+      if (!updatedProgress[topic]) {
+        updatedProgress[topic] = { completed: true, viewed: true };
+      } else {
+        updatedProgress[topic].completed = true;
+        updatedProgress[topic].viewed = true;
+      }
+      
+      setTopicProgress(updatedProgress);
+      localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
+      
+      // Show completion message
+      setShowCompletionMessage(true);
+      
+      // After a delay, navigate back to skills page
+      setTimeout(() => {
+        navigate('/skills');
+      }, 3000);
+    } catch (error) {
+      console.error("Error completing practice:", error);
+      // Still mark as completed locally even if API fails
+      const updatedProgress = { ...topicProgress };
+      if (!updatedProgress[topic]) {
+        updatedProgress[topic] = { completed: true, viewed: true };
+      } else {
+        updatedProgress[topic].completed = true;
+        updatedProgress[topic].viewed = true;
+      }
+      setTopicProgress(updatedProgress);
+      localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
+      navigate('/skills');
     }
   };
 
@@ -363,6 +403,29 @@ function PracticePage() {
     <LeftBar>
       <div className={`${isMobile ? "mt-16" : ""} p-4 bg-dark-50 dark:bg-dark-950 min-h-screen`}>
         <div className="max-w-4xl mx-auto">
+          {/* Completion Message */}
+          {showCompletionMessage && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/70">
+              <div className="bg-base-white dark:bg-dark-800 rounded-xl shadow-xl p-8 max-w-md text-center">
+                <div className="flex justify-center mb-4">
+                  <Award size={80} className="text-primary-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-dark-900 dark:text-white mb-2">Practice Completed!</h2>
+                <p className="text-dark-600 dark:text-dark-300 mb-6">
+                  Congratulations! You've completed this practice session and this topic is now marked as completed in your roadmap.
+                </p>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => navigate('/skills')}
+                    className="px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
+                  >
+                    Return to Skills
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Header with back button */}
           <div className="mb-6 flex items-center">
             <button 

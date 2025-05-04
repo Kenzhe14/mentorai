@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import "../index.css";
 import LeftBar from "../components/sidebar";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../components/authContext";
 import { Users, Clock, DollarSign, Star, Calendar, BookOpen, MessageSquare } from "lucide-react";
 import { MentorAPI } from "../services/api";
 
 function MentorDashboard() {
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

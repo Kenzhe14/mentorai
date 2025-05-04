@@ -4,9 +4,10 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"gorm.io/gorm"
-	"golang.org/x/crypto/bcrypt"
+
 	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // SocialLinks represents mentor's social media links
@@ -34,28 +35,28 @@ func (s *SocialLinks) Scan(value interface{}) error {
 // Mentor represents a mentor in the system
 type Mentor struct {
 	gorm.Model
-	UserID         uint        `json:"userId,omitempty"`
-	Username       string      `gorm:"size:50;not null;uniqueIndex" json:"username"`
-	Name           string      `gorm:"size:100;not null" json:"name"`
-	Email          string      `gorm:"size:100;not null;uniqueIndex" json:"email"`
-	Password       string      `gorm:"size:100;not null" json:"-"`
-	Skills         pq.StringArray `gorm:"type:text[]" json:"skills"`
-	Experience     string      `gorm:"size:20;not null" json:"experience"`
-	Rating         float32     `gorm:"not null;default:0" json:"rating"`
-	Reviews        int         `gorm:"not null;default:0" json:"reviews"`
-	HourlyRate     float32     `gorm:"not null" json:"hourlyRate"`
-	Avatar         string      `json:"avatar,omitempty"`
-	Available      bool        `gorm:"not null;default:true" json:"available"`
-	Bio            string      `gorm:"type:text" json:"bio,omitempty"`
-	SocialLinks    SocialLinks `gorm:"type:jsonb" json:"socialLinks,omitempty"`
+	UserID          uint           `json:"userId,omitempty"`
+	Username        string         `gorm:"size:50;not null;uniqueIndex" json:"username"`
+	Name            string         `gorm:"size:100;not null" json:"name"`
+	Email           string         `gorm:"size:100;not null;uniqueIndex" json:"email"`
+	Password        string         `gorm:"size:100;not null" json:"-"`
+	Skills          pq.StringArray `gorm:"type:text[]" json:"skills"`
+	Experience      string         `gorm:"size:20;not null" json:"experience"`
+	Rating          float32        `gorm:"not null;default:0" json:"rating"`
+	Reviews         int            `gorm:"not null;default:0" json:"reviews"`
+	HourlyRate      float32        `gorm:"not null" json:"hourlyRate"`
+	Avatar          string         `json:"avatar,omitempty"`
+	Available       bool           `gorm:"not null;default:true" json:"available"`
+	Bio             string         `gorm:"type:text" json:"bio,omitempty"`
+	SocialLinks     SocialLinks    `gorm:"type:jsonb" json:"socialLinks,omitempty"`
 	Specializations pq.StringArray `gorm:"type:text[]" json:"specializations,omitempty"`
-	Languages      pq.StringArray `gorm:"type:text[];default:'{English}'" json:"languages"`
-	Timezone       string      `json:"timezone,omitempty"`
-	Verified       bool        `gorm:"not null;default:false" json:"verified"`
-	DisplayName    string      `gorm:"size:100" json:"displayName"`
-	AvatarURL      string      `gorm:"size:255" json:"avatarUrl"`
-	Phone          string      `gorm:"size:15" json:"phone"`
-	IsMentor       bool        `gorm:"not null;default:true" json:"isMentor"`
+	Languages       pq.StringArray `gorm:"type:text[];default:'{English}'" json:"languages"`
+	Timezone        string         `json:"timezone,omitempty"`
+	Verified        bool           `gorm:"not null;default:false" json:"verified"`
+	DisplayName     string         `gorm:"size:100" json:"displayName"`
+	AvatarURL       string         `gorm:"size:255" json:"avatarUrl"`
+	Phone           string         `gorm:"size:15" json:"phone"`
+	IsMentor        bool           `gorm:"not null;default:true" json:"isMentor"`
 }
 
 // BeforeCreate is a GORM hook that hashes the password before creating a mentor
@@ -97,4 +98,4 @@ func (m *Mentor) UpdateRating(db *gorm.DB, newRating float32) error {
 func (m *Mentor) ToggleAvailability(db *gorm.DB) error {
 	m.Available = !m.Available
 	return db.Save(m).Error
-} 
+}

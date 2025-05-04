@@ -14,92 +14,139 @@ const PracticeModal = ({
   setShowSolution,
   checkAnswer,
   nextExercise,
-  completePractice
+  completePractice,
+  currentTopic,
+  isGeneratingExercises
 }) => {
-  const [isGeneratingExercises, setIsGeneratingExercises] = useState(false);
-  const [dynamicExercises, setDynamicExercises] = useState(null);
+  // We'll keep the internal state for backward compatibility but prioritize the prop
+  const [isLoadingExercises, setIsLoadingExercises] = useState(false);
   const [exerciseError, setExerciseError] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const API_URL = "http://localhost:5000";
 
-  // Generate AI exercises when modal opens or lecture changes
+  // Use either the prop or internal state for loading state
+  const isLoading = isGeneratingExercises || isLoadingExercises;
+
+  // Update progress when exercise changes
   useEffect(() => {
-    if (showPracticeModal && currentLecture && !dynamicExercises) {
-      generateAIExercises();
+    if (currentLecture?.exercises && currentLecture.exercises.length > 0) {
+      setProgress(Math.round((currentExercise / currentLecture.exercises.length) * 100));
     }
-  }, [showPracticeModal, currentLecture]);
+  }, [currentExercise, currentLecture]);
+  
+  // Check if exercises are loading or if we have exercises
+  useEffect(() => {
+    // If we have exercises but previously had an error, clear it
+    if (currentLecture?.exercises && currentLecture.exercises.length > 0) {
+      setExerciseError(null);
+    }
+  }, [currentLecture]);
 
-  // Function to fetch AI-generated exercises from the backend
-  const generateAIExercises = async () => {
-    setIsGeneratingExercises(true);
-    setExerciseError(null);
+  // Fallback function to generate exercises if needed
+  const generateSampleExercises = () => {
+    // Create a safe version of the topic for variable names
+    const safeTopicName = currentTopic 
+      ? currentTopic.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '')
+      : "Example";
     
-    try {
-      const topic = currentLecture.title;
-      const languagePrefix = window.location.pathname.startsWith('/ru') ? '/ru' : '/en';
-      
-      console.log(`Fetching exercises for topic: ${topic}`);
-      
-      // Use the public endpoint for better compatibility
-      const response = await axios.post(`${languagePrefix}/api/public/exercises`, {
-        topic: topic
-      }, {
-        withCredentials: true,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      // Check for different response formats
-      if (response.data && response.data.exercises) {
-        console.log(`Received ${response.data.exercises.length} exercises from backend`);
-        setDynamicExercises(response.data.exercises);
-      } else if (response.data && Array.isArray(response.data)) {
-        // Handle case where response is a direct array
-        console.log(`Received ${response.data.length} exercises from backend (array format)`);
-        setDynamicExercises(response.data);
-      } else {
-        console.error("Invalid response format:", response.data);
-        setExerciseError("Received invalid exercise data from server");
+    // Sample exercises for development/testing
+    const sampleExercises = [
+      // Quiz questions
+      {
+        type: "quiz",
+        question: `What is the main purpose of a variable in ${currentTopic || "programming"}?`,
+        options: [
+          "To create visual elements on a screen",
+          "To store and manipulate data",
+          "To connect to the internet",
+          "To create animation effects"
+        ],
+        correctAnswer: 1,
+        difficulty: "Basic",
+        explanation: `Variables are used to store and manipulate data in ${currentTopic || "programming"}.`
+      },
+      {
+        type: "quiz",
+        question: `Which of the following is NOT a common ${currentTopic || "programming"} concept?`,
+        options: [
+          "Fundamental principle",
+          "Standard practice",
+          "Best approach",
+          "Magic solution"
+        ],
+        correctAnswer: 3,
+        difficulty: "Basic",
+        explanation: `In ${currentTopic || "programming"}, we rely on proven principles and methodologies, not 'magic solutions'.`
+      },
+      {
+        type: "quiz",
+        question: `What does successful application of ${currentTopic || "this topic"} require?`,
+        options: [
+          "Only theoretical knowledge",
+          "Only practical experience",
+          "Balanced understanding of theory and practice",
+          "Special innate talent"
+        ],
+        correctAnswer: 2,
+        difficulty: "Intermediate",
+        explanation: `Success in ${currentTopic || "this field"} requires a balance of theoretical understanding and practical application.`
+      },
+      // Coding exercises
+      {
+        type: "coding",
+        prompt: `Write a function that demonstrates a basic principle of ${currentTopic || "this topic"}.`,
+        starterCode: `function demonstrate${safeTopicName}() {\n  // Your code here\n}`,
+        solution: `function demonstrate${safeTopicName}() {\n  return 'This demonstrates a basic principle of ${currentTopic || "the topic"}: Always start with fundamentals.';\n}`,
+        difficulty: "Basic",
+        hints: ["Remember to follow best practices", "Focus on clarity in your implementation", "Consider edge cases in your solution"]
+      },
+      {
+        type: "coding",
+        prompt: `Create a function that applies ${currentTopic || "these concepts"} to process input data.`,
+        starterCode: `function process${safeTopicName}(data) {\n  // Your code here\n}`,
+        solution: `function process${safeTopicName}(data) {\n  // Example implementation\n  if (!data) return 'No data provided';\n  \n  if (Array.isArray(data)) {\n    return data.map(item => 'Processed: ' + item);\n  } else {\n    return 'Processed: ' + data;\n  }\n}`,
+        difficulty: "Intermediate",
+        hints: ["Consider different types of input", "Handle edge cases like empty inputs", "Think about how to transform the data"]
       }
-    } catch (error) {
-      console.error("Error fetching exercises:", error);
-      
-      // Detailed error logging
-      if (error.response) {
-        console.error("Response status:", error.response.status);
-        console.error("Response data:", error.response.data);
-        
-        // Handle unauthorized errors specifically
-        if (error.response.status === 401) {
-          setExerciseError("Authentication required. Please log in to generate exercises.");
-        } else {
-          setExerciseError(error.response?.data?.error || "Failed to generate exercises");
-        }
-      } else if (error.request) {
-        // Request was made but no response received
-        console.error("No response received:", error.request);
-        setExerciseError("No response from server. Please check your connection.");
-      } else {
-        // Error in setting up the request
-        console.error("Request error:", error.message);
-        setExerciseError("Error setting up request: " + error.message);
-      }
-    } finally {
-      setIsGeneratingExercises(false);
+    ];
+
+    // Update the currentLecture with these exercises
+    if (currentLecture) {
+      currentLecture.exercises = sampleExercises;
     }
+    
+    return sampleExercises;
   };
 
-  if (!showPracticeModal || !currentLecture) return null;
+  // Handle sample exercises generation with proper error state management
+  const handleGenerateSampleExercises = () => {
+    setIsLoadingExercises(true);
+    setTimeout(() => {
+      const samples = generateSampleExercises();
+      // If generateSampleExercises was successful, clear the error
+      if (samples && samples.length > 0) {
+        setExerciseError(null);
+      }
+      setIsLoadingExercises(false);
+    }, 500); // Slight delay for UX purposes
+  };
 
-  // Use dynamically generated exercises if available
-  const exercises = dynamicExercises || (currentLecture.exercises || []);
-  const currentEx = exercises[currentExercise] || null;
+  if (!showPracticeModal) return null;
+
+  // Check if we have exercises in the currentLecture
+  const hasExercises = currentLecture && 
+                      currentLecture.exercises && 
+                      currentLecture.exercises.length > 0;
+  
+  // Get the current exercise
+  const currentEx = hasExercises ? currentLecture.exercises[currentExercise] : null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-base-white dark:bg-dark-900 rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-base-white dark:bg-dark-900 p-4 border-b border-dark-200/10 dark:border-dark-800/50 flex justify-between items-center z-10">
           <h2 className="text-xl font-bold text-dark-900 dark:text-base-white">
-            Practice Mode: {currentLecture.title}
+            Practice: {currentTopic}
           </h2>
           <button 
             onClick={() => setShowPracticeModal(false)}
@@ -108,61 +155,93 @@ const PracticeModal = ({
             ✕
           </button>
         </div>
+        
         <div className="p-6">
-          {isGeneratingExercises ? (
+          {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader className="animate-spin h-10 w-10 text-primary-500 mb-4" />
-              <p className="text-dark-700 dark:text-dark-200">Generating practice exercises with AI...</p>
+              <p className="text-dark-700 dark:text-dark-200">Loading practice exercises...</p>
               <p className="text-dark-500 dark:text-dark-400 text-sm mt-2">This might take a moment</p>
             </div>
           ) : exerciseError ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-4 rounded-lg mb-4 max-w-md mx-auto text-center">
-                <p className="font-medium mb-2">Error generating exercises</p>
+                <p className="font-medium mb-2">Error loading exercises</p>
                 <p className="text-sm">{exerciseError}</p>
               </div>
-              <button
-                onClick={generateAIExercises}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600 text-white rounded-lg transition-colors"
-              >
-                Try Again
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowPracticeModal(false)}
+                  className="px-4 py-2 bg-dark-200 hover:bg-dark-300 dark:bg-dark-700 dark:hover:bg-dark-600 text-dark-700 dark:text-dark-200 rounded-lg transition-colors"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={handleGenerateSampleExercises}
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600 text-white rounded-lg transition-colors"
+                >
+                  Use Sample Exercises
+                </button>
+              </div>
             </div>
-          ) : exercises.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-dark-700 dark:text-dark-300 mb-4">No exercises available for this topic.</p>
-              <button
-                onClick={generateAIExercises}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600 text-white rounded-lg transition-colors"
-              >
-                Generate Exercises
-              </button>
+          ) : !hasExercises ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 p-4 rounded-lg mb-4 max-w-md mx-auto text-center">
+                <p className="font-medium mb-2">No exercises available</p>
+                <p className="text-sm">We couldn't find any practice exercises for this topic.</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowPracticeModal(false)}
+                  className="px-4 py-2 bg-dark-200 hover:bg-dark-300 dark:bg-dark-700 dark:hover:bg-dark-600 text-dark-700 dark:text-dark-200 rounded-lg transition-colors"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={handleGenerateSampleExercises}
+                  className="px-4 py-2 bg-primary-600 hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600 text-white rounded-lg transition-colors"
+                >
+                  Use Sample Exercises
+                </button>
+              </div>
             </div>
-          ) : (
+          ) : currentEx ? (
             <>
-              <div className="flex items-center gap-2 mb-4 text-sm text-dark-500 dark:text-white">
-                <Clock size={16} />
-                <span>Current Exercise: {currentExercise + 1} / {exercises.length}</span>
+              <div className="flex items-center gap-2 mb-4">
+                <Clock size={16} className="text-dark-500 dark:text-white" />
+                <span className="text-sm text-dark-500 dark:text-white">Exercise {currentExercise + 1} of {currentLecture.exercises.length}</span>
+                
+                {/* Progress bar */}
+                <div className="flex-grow ml-2">
+                  <div className="w-full bg-dark-200 dark:bg-dark-700 rounded-full h-2">
+                    <div 
+                      className="bg-primary-500 h-2 rounded-full" 
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Exercise type indicator */}
+              <div className="mb-4">
+                <span className={`text-xs font-medium rounded-full px-3 py-1 ${
+                  currentEx && currentEx.type === "quiz" 
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" 
+                    : "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                }`}>
+                  {currentEx && currentEx.type === "quiz" ? "Quiz Question" : "Coding Challenge"}
+                </span>
+                
+                {currentEx && currentEx.difficulty && (
+                  <span className="text-xs ml-2 bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 
+                            px-2 py-1 rounded-full">
+                    {currentEx.difficulty}
+                  </span>
+                )}
               </div>
               
               {currentEx && currentEx.type === "quiz" && (
                 <div className="mb-4 bg-dark-50 dark:bg-dark-850 p-4 rounded-lg border border-dark-200/20 dark:border-dark-700/30">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-dark-900 dark:text-white">Quiz Question</h3>
-                    {currentEx.difficulty && (
-                      <span className="text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 
-                                px-2 py-1 rounded-full">
-                        {currentEx.difficulty}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {currentEx.learningObjective && (
-                    <p className="text-sm text-dark-600 dark:text-dark-400 mb-3 italic">
-                      Learning objective: {currentEx.learningObjective}
-                    </p>
-                  )}
-                  
                   <p className="text-dark-700 dark:text-dark-200 mb-4 text-lg">
                     {currentEx.question}
                   </p>
@@ -175,8 +254,8 @@ const PracticeModal = ({
                         className={`w-full px-4 py-3 rounded-lg text-left transition-colors ${
                           isAnswerCorrect !== null && index === currentEx.correctAnswer
                             ? 'bg-green-500/20 border-green-500 border text-green-700 dark:text-green-300'
-                            : isAnswerCorrect === false && index === currentEx.correctAnswer
-                            ? 'bg-green-500/20 border-green-500 border text-green-700 dark:text-green-300'
+                            : isAnswerCorrect === false && index === userAnswer
+                            ? 'bg-red-500/20 border-red-500 border text-red-700 dark:text-red-300'
                             : 'bg-base-white dark:bg-dark-800 text-dark-900 dark:text-base-white hover:bg-primary-50 dark:hover:bg-primary-900/20 border border-dark-200 dark:border-dark-700'
                         }`}
                       >
@@ -203,22 +282,6 @@ const PracticeModal = ({
               
               {currentEx && currentEx.type === "coding" && (
                 <div className="mb-4 bg-dark-50 dark:bg-dark-850 p-4 rounded-lg border border-dark-200/20 dark:border-dark-700/30">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-lg text-dark-900 dark:text-white">Coding Exercise</h3>
-                    {currentEx.difficulty && (
-                      <span className="text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 
-                                px-2 py-1 rounded-full">
-                        {currentEx.difficulty}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {currentEx.learningObjective && (
-                    <p className="text-sm text-dark-600 dark:text-dark-400 mb-3 italic">
-                      Learning objective: {currentEx.learningObjective}
-                    </p>
-                  )}
-                  
                   <p className="text-dark-700 dark:text-dark-200 mb-4">
                     {currentEx.prompt}
                   </p>
@@ -252,9 +315,10 @@ const PracticeModal = ({
                         {currentEx.starterCode}
                       </pre>
                       <textarea
-                        value={userAnswer || currentEx.starterCode}
+                        value={userAnswer === "" && currentEx ? currentEx.starterCode : userAnswer}
                         onChange={(e) => setUserAnswer(e.target.value)}
                         className="absolute inset-0 font-mono p-4 bg-transparent text-slate-50 resize-none outline-none border-2 border-primary-500/0 focus:border-primary-500/50 rounded-lg transition-colors"
+                        placeholder=""
                       />
                     </div>
                   </div>
@@ -273,19 +337,15 @@ const PracticeModal = ({
               {/* Progress and Actions */}
               <div className="mt-8 border-t border-dark-200/20 dark:border-dark-700/30 pt-6">
                 <div className="flex justify-between items-center mb-4">
-                  <div className="text-dark-700 dark:text-dark-200 flex items-center gap-4">
-                    <span>Exercise {currentExercise + 1} of {exercises.length}</span>
-                    <div className="bg-dark-200 dark:bg-dark-700 rounded-full h-2 w-40">
-                      <div 
-                        className="bg-primary-500 h-2 rounded-full" 
-                        style={{ width: `${((currentExercise + 1) / exercises.length) * 100}%` }}
-                      ></div>
-                    </div>
+                  <div className="text-dark-700 dark:text-dark-200">
+                    {currentExercise < 5 ? 
+                      `Quiz ${currentExercise + 1} of 5` : 
+                      `Coding ${currentExercise - 4} of 5`}
                   </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 justify-end">
-                  {currentExercise < exercises.length - 1 ? (
+                  {currentExercise < currentLecture.exercises.length - 1 ? (
                     <button
                       onClick={nextExercise}
                       disabled={currentEx && currentEx.type === 'quiz' && isAnswerCorrect === null}
@@ -313,6 +373,10 @@ const PracticeModal = ({
                 </div>
               </div>
             </>
+          ) : (
+            <div className="text-center py-8 text-dark-600 dark:text-dark-300">
+              No exercise available. Please try again.
+            </div>
           )}
         </div>
       </div>

@@ -5,13 +5,14 @@ import (
 	"log"
 	"os"
 
+	"mentorback/config"
+	"mentorback/models"
+	"mentorback/routes"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
-	"mentorback/config"
-	"mentorback/models"
-	"mentorback/routes"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	
+
 	// Auto-migrate the database
 	if err := config.MigrateDatabase(db); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
@@ -47,7 +48,7 @@ func main() {
 
 	// Configure CORS
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://localhost"},
+		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -56,7 +57,7 @@ func main() {
 
 	// Register health check routes first (no auth required)
 	routes.RegisterHealthRoutes(router)
-	
+
 	// Register other routes
 	routes.RegisterAuthRoutes(router, db)
 	routes.RegisterOnboardingRoutes(router, db)
@@ -66,7 +67,7 @@ func main() {
 	// Get port from environment variable
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "5001"
+		port = "5000"
 	}
 
 	// Start server
@@ -93,12 +94,12 @@ func fixNullValues(db *gorm.DB) {
 		if user.OnboardingData.Goals == nil {
 			user.OnboardingData.Goals = []string{}
 		}
-		
+
 		// Save the updated user
 		if err := db.Save(&user).Error; err != nil {
 			log.Printf("Error fixing null values for user %d: %v", user.ID, err)
 		}
 	}
-	
+
 	log.Printf("Fixed null values for %d users", len(users))
-} 
+}

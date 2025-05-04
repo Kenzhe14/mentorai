@@ -1,12 +1,10 @@
 import React from "react";
-import { Link } from "react-router-dom";
 
 const ProgressOverview = ({ 
   roadmap, 
   topicProgress, 
   showViewAll = false,
-  isCompact = false,
-  title = "Learning Progress"
+  isCompact = false
 }) => {
   // Handle case when we don't have roadmap data directly (for homepage/dashboard)
   if (!roadmap && !topicProgress) {
@@ -37,15 +35,7 @@ const ProgressOverview = ({
   // Compact version for homepage/dashboard
   if (isCompact) {
     return (
-      <div className="bg-base-white dark:bg-dark-900 rounded-xl p-4 border border-dark-200/10 dark:border-dark-800/50 shadow-md">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-bold text-lg text-dark-900 dark:text-base-white">{title}</h3>
-          {showViewAll && (
-            <Link to="/skills" className="text-primary-500 dark:text-primary-400 text-sm font-medium hover:underline">
-              View All
-            </Link>
-          )}
-        </div>
+      <div className="bg-base-white dark:bg-dark-900 rounded-xl p-4">
         
         <div className="w-full bg-dark-200 dark:bg-dark-700 rounded-full h-2.5 mb-3">
           <div className="bg-primary-600 h-2.5 rounded-full" style={{ width: `${progressPercentage}%` }}></div>

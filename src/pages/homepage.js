@@ -70,7 +70,7 @@ function Homepage() {
                     { 
                         title: "Upcoming Session", 
                         description: "React Hooks with Alex - Tomorrow, 3 PM", 
-                        link: "/mentors", 
+                        link: "/dashboard", 
                         icon: <Calendar size={24} />,
                         color: "bg-primary-500 dark:bg-primary-500"
                     },
@@ -230,29 +230,6 @@ function Homepage() {
                                     roadmap={roadmap} 
                                     topicProgress={topicProgress}
                                 />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold mb-4 text-dark-900 dark:text-base-white">Recommended For You</h2>
-                                <div className="space-y-4">
-                                    <div className="p-4 rounded-lg border border-dark-200/10 dark:border-dark-800/50 
-                                                bg-dark-50/50 dark:bg-dark-800/50 hover:shadow-md transition-shadow">
-                                        <h3 className="font-semibold text-dark-900 dark:text-base-white">React Hooks Deep Dive</h3>
-                                        <p className="text-sm text-dark-600 dark:text-dark-300 mt-1">
-                                            Master useState, useEffect, and custom hooks
-                                        </p>
-                                        <div className="flex justify-between items-center mt-3">
-                                            <span className="text-xs bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 
-                                                        px-2 py-1 rounded-full">
-                                                Intermediate
-                                            </span>
-                                            <Link to="/skills" 
-                                                className="text-primary-600 dark:text-primary-400 text-sm font-medium 
-                                                        hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
-                                                Start Learning
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>

@@ -1,10 +1,11 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"mentorback/controllers"
 	"mentorback/middleware"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // RegisterWebRoutes registers the web routes for English content
@@ -13,7 +14,16 @@ import (
 func RegisterWebRoutes(router *gin.Engine, db *gorm.DB) {
 	// Create controllers
 	mentorsController := controllers.NewMentorsController(db)
-	webController := controllers.NewWebController(db)
+
+	// Create base controller for shared OpenAI functionality
+	baseController := controllers.NewBaseController(db)
+
+	// Create specialized controllers using the base controller pointer
+	contentController := controllers.NewContentController(*baseController)
+	roadmapController := controllers.NewRoadmapController(*baseController)
+	lectureController := controllers.NewLectureController(*baseController)
+	chatController := controllers.NewChatController(*baseController)
+	exerciseController := controllers.NewExerciseController(*baseController)
 
 	// Public routes for mentors
 	publicRoutes := router.Group("/api")
@@ -27,32 +37,33 @@ func RegisterWebRoutes(router *gin.Engine, db *gorm.DB) {
 	{
 		// We'll use authentication middleware on the whole group
 		webRoutes.Use(middleware.Auth(db))
-		
-		webRoutes.POST("/personalized-content", webController.PersonalizedContent)
-		webRoutes.POST("/roadmap", webController.GenerateRoadmap)
-		webRoutes.POST("/lecture", webController.GenerateLecture)
-		webRoutes.POST("/lecture/modular", webController.GenerateLecture)
-		webRoutes.POST("/chat", webController.SendChatMessage)
-		webRoutes.GET("/chat/sessions", webController.GetChatSessions)
-		webRoutes.GET("/chat/history/:id", webController.GetChatHistory)
-		
-		// Keep exercises endpoint for authenticated users
-		webRoutes.POST("/exercises", webController.GenerateExercises)
+
+		webRoutes.POST("/personalized-content", contentController.PersonalizedContent)
+		webRoutes.POST("/roadmap", roadmapController.GenerateRoadmap)
+		webRoutes.POST("/lecture", lectureController.GenerateLecture)
+		webRoutes.POST("/lecture/modular", lectureController.GenerateLecture)
+		webRoutes.POST("/chat", chatController.SendChatMessage)
+		webRoutes.GET("/chat/sessions", chatController.GetChatSessions)
+		webRoutes.GET("/chat/history/:id", chatController.GetChatHistory)
+		webRoutes.DELETE("/chat/all", chatController.DeleteAllChats)
+
+		// Exercise endpoints for authenticated users
+		webRoutes.POST("/exercises", exerciseController.GenerateExercises)
 	}
-	
+
 	// Also create a public route for exercises with optional authentication
 	// This helps the frontend work even when users aren't authenticated
 	publicRoutes = router.Group("/en/api/public")
 	{
 		publicRoutes.Use(middleware.OptionalAuth(db))
-		publicRoutes.POST("/exercises", webController.GenerateExercises)
+		publicRoutes.POST("/exercises", exerciseController.GenerateExercises)
 	}
-	
+
 	// Public Russian routes - only adding public exercises route here
 	// The rest of Russian routes are defined in ru_web_routes.go
 	ruPublicRoutes := router.Group("/ru/api/public")
 	{
 		ruPublicRoutes.Use(middleware.OptionalAuth(db))
-		ruPublicRoutes.POST("/exercises", webController.GenerateExercises)
+		ruPublicRoutes.POST("/exercises", exerciseController.GenerateExercises)
 	}
-} 
+}

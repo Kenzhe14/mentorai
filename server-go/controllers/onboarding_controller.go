@@ -3,9 +3,10 @@ package controllers
 import (
 	"net/http"
 
+	"mentorback/models"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"mentorback/models"
 )
 
 // OnboardingController handles user onboarding
@@ -29,8 +30,8 @@ type SaveOnboardingRequest struct {
 
 // OnboardingResponse represents the onboarding response
 type OnboardingResponse struct {
-	Success bool                `json:"success"`
-	Message string              `json:"message,omitempty"`
+	Success bool                  `json:"success"`
+	Message string                `json:"message,omitempty"`
 	Data    models.OnboardingData `json:"data,omitempty"`
 }
 
@@ -111,4 +112,4 @@ func (oc *OnboardingController) CheckOnboardingStatus(c *gin.Context) {
 		"success":   true,
 		"completed": isCompleted,
 	})
-} 
+}

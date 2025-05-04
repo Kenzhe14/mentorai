@@ -3,11 +3,11 @@ import LeftBar from "../components/sidebar";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../components/authContext";
 import { MentorAPI } from "../services/api";
-import { Users, Calendar, Clock, MapPin, BookOpen, Award, BarChart4, CheckCircle } from "lucide-react";
+import { Users, Calendar, Clock, MapPin,BarChart4} from "lucide-react";
 
 function MentorStudents() {
   const navigate = useNavigate();
-  const { currentUser, API_URL } = useAuth();
+  const { API_URL } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);

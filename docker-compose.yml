@@ -1,83 +1,61 @@
 version: '3.8'
 
 services:
+  # Frontend сервис
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.frontend
     ports:
       - "80:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
-      - mentor-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - app-network
+    environment:
+      - NODE_ENV=production
 
+  # Backend сервис
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     ports:
-      - "5000:5000"
+      - "5001:5001"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
     environment:
+      - PORT=5001
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=mentor
-      - JWT_SECRET=kenzheproduction
-      - PORT=5000
-      - ENVIRONMENT=production
-      - UPLOAD_DIR=/app/uploads
-      - OPENROUTER_API_KEY=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
-      - API_URL=https://openrouter.ai/api/v1/chat/completions
-      - MODEL=google/gemini-2.0-flash-001 
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SSL_MODE=disable
+      - JWT_SECRET=${JWT_SECRET}
     volumes:
-      - uploads:/app/uploads
-    networks:
-      - mentor-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      - backend-data:/app/uploads
 
+  # PostgreSQL база данных
   postgres:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=mentor
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+    image: postgres:17
     ports:
       - "5432:5432"
     networks:
-      - mentor-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      - app-network
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 
 networks:
-  mentor-network:
+  app-network:
     driver: bridge
 
 volumes:
   postgres-data:
-  uploads: 
+  backend-data: 

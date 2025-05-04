@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Menu, X, ArrowUp } from "lucide-react";
-import { useLocation, Route, Routes, useNavigate, Link } from "react-router-dom";
+import { useLocation,Link } from "react-router-dom";
 import FAQ from "../components/FAQ";
 import Main from "../components/Mainonboarding";
 import OnboardingSteps from "./OnboardingSteps";
@@ -11,15 +11,6 @@ const Onboarding = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const location = useLocation();
   const isOnboardingSteps = location.pathname === "/onboarding/steps";
-  const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [onboardingData, setOnboardingData] = useState({
-    learningGoals: [],
-    preferredLanguages: [],
-    experienceLevel: '',
-    availability: '',
-    learningStyle: '',
-  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -35,57 +26,6 @@ const Onboarding = () => {
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const steps = [
-    {
-      title: 'Learning Goals',
-      description: 'What do you want to achieve?',
-    },
-    {
-      title: 'Programming Languages',
-      description: 'Select the languages you want to learn',
-    },
-    {
-      title: 'Experience Level',
-      description: 'Tell us about your current expertise',
-    },
-    {
-      title: 'Availability',
-      description: 'When would you like to learn?',
-    },
-    {
-      title: 'Learning Style',
-      description: 'How do you prefer to learn?',
-    },
-  ];
-
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      // Save onboarding data and redirect
-      localStorage.setItem('onboardingData', JSON.stringify(onboardingData));
-      navigate('/login', { 
-        state: { 
-          fromOnboarding: true,
-          message: 'Please create an account to save your preferences.' 
-        } 
-      });
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const updateOnboardingData = (key, value) => {
-    setOnboardingData(prev => ({
-      ...prev,
-      [key]: value
-    }));
   };
 
   // If we're on the onboarding steps page, show only the steps component
@@ -124,12 +64,12 @@ const Onboarding = () => {
           <a href="/login" className="hover:text-cyan-400 transition">
             Log In
           </a>
-          <Link
+          {/* <Link
             to="/mentor-register"
             className="hover:text-cyan-400 transition"
           >
             For Mentors
-          </Link>
+          </Link> */}
         </div>
       </nav>
 

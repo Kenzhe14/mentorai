@@ -1,3 +1,225 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Lecture Content Styles */
+.lecture-content {
+  @apply text-dark-800 dark:text-dark-100;
+}
+
+.lecture-content h1,
+.lecture-content h2,
+.lecture-content h3,
+.lecture-content h4 {
+  @apply flex items-center font-bold mb-4 text-dark-900 dark:text-white;
+}
+
+.lecture-content h1 {
+  @apply text-3xl mt-8;
+}
+
+.lecture-content h2 {
+  @apply text-2xl mt-6 pb-2 border-b border-dark-200/30 dark:border-dark-700/30;
+}
+
+.lecture-content h3 {
+  @apply text-xl mt-5;
+}
+
+.lecture-content h4 {
+  @apply text-lg mt-4;
+}
+
+.lecture-content .heading-icon {
+  @apply mr-2 inline-block;
+}
+
+.lecture-content p {
+  @apply mb-4 leading-relaxed;
+}
+
+/* Code blocks */
+.lecture-content .code-block {
+  @apply my-6 rounded-lg overflow-hidden border border-dark-200/30 dark:border-dark-700/50 bg-dark-100 dark:bg-dark-800;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.lecture-content .code-block:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-color: theme('colors.primary.500');
+}
+
+.lecture-content .code-header {
+  @apply bg-primary-600 dark:bg-primary-700 text-white flex justify-between px-4 py-2 text-sm font-medium;
+}
+
+.lecture-content .code-lang {
+  @apply bg-white/20 px-2 py-0.5 rounded text-xs;
+}
+
+.lecture-content pre {
+  @apply bg-dark-950 text-white p-4 rounded-b-lg overflow-x-auto text-sm;
+  line-height: 1.5;
+}
+
+.lecture-content pre code {
+  @apply font-mono bg-transparent text-white;
+}
+
+/* Syntax highlighting */
+.lecture-content .token.comment,
+.lecture-content .token.prolog,
+.lecture-content .token.doctype,
+.lecture-content .token.cdata {
+  @apply text-gray-400;
+}
+
+.lecture-content .token.punctuation {
+  @apply text-gray-300;
+}
+
+.lecture-content .token.property,
+.lecture-content .token.tag,
+.lecture-content .token.boolean,
+.lecture-content .token.number,
+.lecture-content .token.constant,
+.lecture-content .token.symbol,
+.lecture-content .token.deleted {
+  @apply text-red-300;
+}
+
+.lecture-content .token.selector,
+.lecture-content .token.attr-name,
+.lecture-content .token.string,
+.lecture-content .token.char,
+.lecture-content .token.builtin,
+.lecture-content .token.inserted {
+  @apply text-green-300;
+}
+
+.lecture-content .token.operator,
+.lecture-content .token.entity,
+.lecture-content .token.url,
+.lecture-content .language-css .token.string,
+.lecture-content .style .token.string {
+  @apply text-yellow-300;
+}
+
+.lecture-content .token.atrule,
+.lecture-content .token.attr-value,
+.lecture-content .token.keyword {
+  @apply text-blue-300;
+}
+
+.lecture-content .token.function,
+.lecture-content .token.class-name {
+  @apply text-purple-300;
+}
+
+.lecture-content .token.regex,
+.lecture-content .token.important,
+.lecture-content .token.variable {
+  @apply text-orange-300;
+}
+
+.lecture-content code:not(pre code) {
+  @apply px-1.5 py-0.5 rounded bg-dark-100 dark:bg-dark-800 text-primary-600 dark:text-primary-400 font-mono text-sm;
+}
+
+/* Important notes */
+.lecture-content .important-note {
+  @apply bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 pl-4 py-3 pr-4 my-6 rounded-r-lg flex items-start;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.lecture-content .note-icon {
+  @apply mr-2 text-xl flex-shrink-0 mt-1;
+}
+
+.lecture-content .important-note p {
+  @apply m-0 text-dark-700 dark:text-dark-200;
+}
+
+/* Lists */
+.lecture-content .custom-list {
+  @apply pl-6 mb-6 space-y-2;
+}
+
+.lecture-content .custom-list li {
+  @apply relative pl-2;
+}
+
+.lecture-content ul.custom-list li::before {
+  content: '•';
+  @apply absolute text-primary-500 -left-4 top-0 font-bold text-lg;
+}
+
+.lecture-content ol.custom-list {
+  @apply list-decimal;
+}
+
+.lecture-content ol.custom-list li::marker {
+  @apply text-primary-500 font-bold;
+}
+
+/* Tables */
+.lecture-content .table-container {
+  @apply overflow-x-auto mb-6 rounded-lg border border-dark-200/30 dark:border-dark-700/50;
+}
+
+.lecture-content table {
+  @apply min-w-full;
+}
+
+.lecture-content th {
+  @apply bg-dark-100 dark:bg-dark-800 text-dark-700 dark:text-dark-200 font-medium px-4 py-3 text-left text-sm;
+}
+
+.lecture-content td {
+  @apply border-t border-dark-200/20 dark:border-dark-700/30 px-4 py-3 text-sm;
+}
+
+/* Key terms */
+.lecture-content .key-term {
+  @apply font-medium text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 px-1.5 py-0.5 rounded border border-primary-200 dark:border-primary-800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Links */
+.lecture-content a {
+  @apply text-primary-600 dark:text-primary-400 hover:underline;
+}
+
+/* Blockquotes */
+.lecture-content blockquote {
+  @apply border-l-4 border-primary-300 dark:border-primary-700 bg-dark-50 dark:bg-dark-800/50 pl-4 py-3 pr-4 my-6 rounded-r-lg italic;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.lecture-content blockquote p {
+  @apply mb-2 last:mb-0;
+}
+
+.lecture-content blockquote::before {
+  content: '"';
+  @apply text-3xl text-primary-300 dark:text-primary-700 absolute -left-2 top-0 opacity-50;
+}
+
+/* Enhanced list styling */
+.lecture-content ul.custom-list li {
+  @apply mb-2;
+}
+
+.lecture-content ul.custom-list li::before {
+  content: '•';
+  @apply absolute text-primary-500 -left-4 top-0 font-bold text-lg;
+}
+
+.lecture-content ol.custom-list li {
+  @apply mb-3 pl-1;
+}
+
+.lecture-content ol.custom-list li::marker {
+  @apply text-primary-500 font-bold;
+}
