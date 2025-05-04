@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "../index.css";
 import LeftBar from "../components/sidebar";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { CheckCircle, XCircle, ArrowLeft, ArrowRight, HelpCircle, Award, Lock } from "lucide-react";
+import { CheckCircle, XCircle, ArrowLeft, ArrowRight, HelpCircle, Award, Lock, BookOpen } from "lucide-react";
 import axios from "axios";
 
 // API URL constant
@@ -24,6 +24,17 @@ function PracticePage() {
   const [isAccessible, setIsAccessible] = useState(true);
   const [previousTopic, setPreviousTopic] = useState(null);
   const [showCompletionMessage, setShowCompletionMessage] = useState(false);
+  // Add states for exercise generation progress
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStep, setGenerationStep] = useState("");
+  const [generationSteps, setGenerationSteps] = useState([
+    { id: 'analyze', label: 'Analyzing topic knowledge', complete: false },
+    { id: 'outline', label: 'Creating exercise outline', complete: false },
+    { id: 'questions', label: 'Generating quiz questions', complete: false },
+    { id: 'coding', label: 'Creating coding challenges', complete: false },
+    { id: 'solutions', label: 'Generating solutions', complete: false },
+    { id: 'finalize', label: 'Finalizing practice set', complete: false }
+  ]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -76,17 +87,72 @@ function PracticePage() {
       setIsAccessible(true);
       return;
     }
+
+    // If the lecture for this topic has been viewed, always allow practice access
+    // This is the main case - user has already seen the lecture for this topic
+    if (isLectureViewed(decodedTopic)) {
+      console.log(`Lecture for ${decodedTopic} has been viewed, allowing practice access`);
+      setIsAccessible(true);
+      return;
+    }
     
-    // Check if previous topic is completed
+    // Alternative cases - check if previous topic is completed
+    // This is only a fallback in case lecture viewing wasn't properly recorded
     if (topicIndex > 0) {
       const prevTopic = roadmap[topicIndex - 1];
       const prevTopicName = prevTopic.includes(":") ? prevTopic.split(":")[0].trim() : prevTopic;
       
       setPreviousTopic(prevTopicName);
-      const isPrevCompleted = topicProgress[prevTopicName] === "completed";
-      setIsAccessible(isPrevCompleted);
+      
+      // If previous topic is completed, allow access to this topic's practice
+      const isPrevCompleted = isTopicCompleted(prevTopicName);
+      console.log(`Previous topic ${prevTopicName} completed status:`, isPrevCompleted);
+      
+      if (isPrevCompleted) {
+        setIsAccessible(true);
+        return;
+      }
     }
+    
+    // If we reach here, the topic is not accessible
+    setIsAccessible(false);
   }, [topic, roadmap, topicProgress]);
+
+  // Function to check if a topic is completed (unified helper)
+  const isTopicCompleted = (topic) => {
+    if (!topicProgress || !topic) return false;
+    
+    const progress = topicProgress[topic];
+    
+    // Handle different progress tracking formats
+    if (!progress) return false;
+    
+    // New format as object with properties
+    if (typeof progress === 'object') {
+      return progress.completed === true || !!progress.completedAt || progress.Completed === true;
+    }
+    
+    // Old format as string
+    return progress === "completed" || progress === "Completed";
+  };
+
+  // Function to check if a lecture has been viewed
+  const isLectureViewed = (topic) => {
+    if (!topicProgress || !topic) return false;
+    
+    const progress = topicProgress[topic];
+    
+    // Handle different progress tracking formats
+    if (!progress) return false;
+    
+    // New format as object with properties
+    if (typeof progress === 'object') {
+      return progress.viewed === true || !!progress.lastViewed;
+    }
+    
+    // Old format had no 'viewed' status, but any progress means it was viewed
+    return !!progress;
+  };
 
   // Load lecture content based on the topic parameter
   useEffect(() => {
@@ -102,39 +168,132 @@ function PracticePage() {
   const loadLecture = (topicName) => {
     setIsLoadingLecture(true);
     setCurrentLecture(null);
+    // Reset generation progress
+    setGenerationProgress(0);
+    setGenerationStep("Initializing practice...");
+    
+    // Reset generation steps
+    setGenerationSteps(prev => prev.map(step => ({ ...step, complete: false })));
 
-    // Check if we already have this lecture cached in localStorage
-    const cachedLectures = localStorage.getItem("cachedLectures");
-    let lecturesCache = {};
+    try {
+      // Record start time for tracking time spent
+      sessionStorage.setItem(`${topicName}_practice_start`, Date.now().toString());
 
-    if (cachedLectures) {
-      try {
-        lecturesCache = JSON.parse(cachedLectures);
-        // If we have this lecture in cache, use it
-        if (lecturesCache[topicName]) {
-          console.log(`Loading cached lecture for: ${topicName}`);
-          setCurrentLecture(lecturesCache[topicName]);
-          setIsLoadingLecture(false);
-          return;
+      // Simulate progress steps (this would be integrated with real API progress in production)
+      const simulateProgress = () => {
+        const steps = [...generationSteps];
+        let currentStepIndex = 0;
+        
+        const interval = setInterval(() => {
+          if (currentStepIndex >= steps.length) {
+            clearInterval(interval);
+            return;
+          }
+          
+          // Update current step
+          const currentStep = steps[currentStepIndex];
+          setGenerationStep(currentStep.label);
+          
+          // Mark step as complete
+          steps[currentStepIndex] = { ...currentStep, complete: true };
+          setGenerationSteps(steps);
+          
+          // Update progress percentage
+          const progress = Math.round(((currentStepIndex + 1) / steps.length) * 100);
+          setGenerationProgress(progress);
+          
+          currentStepIndex++;
+        }, 800); // Simulate steps with delay
+        
+        return interval;
+      };
+      
+      // Start progress simulation
+      const progressInterval = simulateProgress();
+
+      // Fetch exercises from the API
+      axios.post(`${API_URL}/en/api/web/exercises`, {
+        topic: topicName,
+        difficulty: "beginner", // Default difficulty
+        count: 5 // Default number of exercises
+      })
+      .then(response => {
+        // Clear the interval when response is received
+        clearInterval(progressInterval);
+        
+        // Ensure all progress steps are complete
+        setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
+        setGenerationProgress(100);
+        setGenerationStep("Practice exercises ready!");
+        
+        if (response.data && response.data.exercises && response.data.exercises.length > 0) {
+          console.log(`Generated ${response.data.exercises.length} exercises for topic: ${topicName}`);
+          
+          // Short delay before showing exercises to ensure progress is visible
+          setTimeout(() => {
+            // Create a lecture object with the exercises
+            const lectureData = {
+              id: `lecture-${Date.now()}`,
+              title: topicName,
+              content: `<h2>Practice exercises for ${topicName}</h2>`,
+              exercises: response.data.exercises,
+              estimatedTime: "20 minutes"
+            };
+            
+            setCurrentLecture(lectureData);
+            
+            // Track exercise start in analytics
+            const exerciseData = {
+              topic: topicName,
+              exerciseId: 'practice-session',
+              completed: false,
+              timeSpent: 0
+            };
+            trackAnalytics('exercise-activity', exerciseData);
+            
+            setIsLoadingLecture(false);
+          }, 500);
+        } else {
+          console.warn("No exercises returned from API, using sample exercises");
+          
+          setTimeout(() => {
+            const sampleLecture = generateSampleLecture(topicName);
+            setCurrentLecture(sampleLecture);
+            setIsLoadingLecture(false);
+          }, 500);
         }
-      } catch (error) {
-        console.error("Error parsing cached lectures:", error);
-      }
+      })
+      .catch(error => {
+        console.error("Error fetching exercises:", error);
+        
+        // Clear the interval when there's an error
+        clearInterval(progressInterval);
+        
+        // Ensure all steps are completed but indicate error
+        setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
+        setGenerationProgress(100);
+        setGenerationStep("Generated fallback exercises due to error");
+        
+        setTimeout(() => {
+          const sampleLecture = generateSampleLecture(topicName);
+          setCurrentLecture(sampleLecture);
+          setIsLoadingLecture(false);
+        }, 500);
+      });
+    } catch (error) {
+      console.error("Error in loadLecture:", error);
+      
+      // Ensure all steps are completed but indicate error
+      setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
+      setGenerationProgress(100);
+      setGenerationStep("Generated fallback exercises due to error");
+      
+      setTimeout(() => {
+        const sampleLecture = generateSampleLecture(topicName);
+        setCurrentLecture(sampleLecture);
+        setIsLoadingLecture(false);
+      }, 500);
     }
-
-    // In a real implementation, this would be an API call
-    // For now, we'll simulate it with setTimeout
-    setTimeout(() => {
-      // Generate a sample lecture structure based on the topic
-      const sampleLecture = generateSampleLecture(topicName);
-      setCurrentLecture(sampleLecture);
-      
-      // Save the lecture to cache
-      lecturesCache[topicName] = sampleLecture;
-      localStorage.setItem("cachedLectures", JSON.stringify(lecturesCache));
-      
-      setIsLoadingLecture(false);
-    }, 1500);
   };
 
   // Helper function to generate a sample lecture structure
@@ -293,11 +452,90 @@ function PracticePage() {
     return exercises;
   };
 
-  // Update progress for a topic
-  const updateTopicProgress = (topic, status) => {
-    const newProgress = { ...topicProgress, [topic]: status };
-    setTopicProgress(newProgress);
-    localStorage.setItem("topicProgress", JSON.stringify(newProgress));
+  // Update topic progress
+  const updateTopicProgress = async (topic, status) => {
+    try {
+      console.log(`Updating progress for topic: ${topic}`, status);
+      
+      // Check authentication
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn("No authentication token found. Topic progress may not be saved on the server.");
+      }
+      
+      // Prepare server data format
+      const requestData = {
+        topic,
+        viewed: true,
+        completed: status.completed === true
+      };
+      
+      // Add additional fields only if defined
+      if (status.quizScore) requestData.quizScore = status.quizScore;
+      if (status.codeScore) requestData.codeScore = status.codeScore;
+      
+      console.log("Sending data to server:", requestData);
+      
+      const response = await axios.post(`${API_URL}/en/api/web/progress`, requestData);
+      
+      if (response.data && response.data.progress) {
+        console.log(`Progress updated successfully for topic: ${topic}`);
+        
+        // Update local progress state
+        const updatedProgress = { ...topicProgress };
+        if (!updatedProgress[topic]) {
+          updatedProgress[topic] = status;
+        } else {
+          updatedProgress[topic] = {
+            ...updatedProgress[topic],
+            ...status
+          };
+        }
+        
+        // Update state and localStorage
+        setTopicProgress(updatedProgress);
+        localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
+        
+        return true;
+      } else {
+        console.warn("Server response does not contain progress data");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating topic progress:", error);
+      
+      // Fallback to local update
+      console.log("Using local fallback for topic progress");
+      const updatedProgress = { ...topicProgress };
+      
+      if (!updatedProgress[topic]) {
+        updatedProgress[topic] = {
+          viewed: true,
+          completed: status.completed || false,
+          lastViewed: new Date().toISOString()
+        };
+      } else {
+        updatedProgress[topic] = {
+          ...updatedProgress[topic],
+          viewed: true,
+          lastViewed: new Date().toISOString()
+        };
+        
+        if (status.completed) {
+          updatedProgress[topic].completed = true;
+          updatedProgress[topic].completedAt = new Date().toISOString();
+        }
+        
+        if (status.quizScore) updatedProgress[topic].quizScore = status.quizScore;
+        if (status.codeScore) updatedProgress[topic].codeScore = status.codeScore;
+      }
+      
+      // Update state and localStorage
+      setTopicProgress(updatedProgress);
+      localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
+      
+      return true;
+    }
   };
 
   // Check answer for quiz questions
@@ -337,47 +575,157 @@ function PracticePage() {
     }
   };
 
-  // Complete practice session
-  const completePractice = async () => {
+  // Track analytics for user interactions
+  const trackAnalytics = async (eventType, data) => {
     try {
-      // Send completion status to backend
-      await axios.post(`${API_URL}/en/api/web/complete-practice`, {
-        topic: topic
-      });
+      console.log(`Tracking analytics event: ${eventType}`, data);
+      let endpoint = '';
       
-      // Update progress
-      const updatedProgress = { ...topicProgress };
-      if (!updatedProgress[topic]) {
-        updatedProgress[topic] = { completed: true, viewed: true };
-      } else {
-        updatedProgress[topic].completed = true;
-        updatedProgress[topic].viewed = true;
+      switch(eventType) {
+        case 'topic-view':
+          endpoint = '/analytics/topic-view';
+          break;
+        case 'topic-completion':
+          endpoint = '/analytics/topic-completion';
+          break;
+        case 'exercise-activity':
+          endpoint = '/analytics/exercise-activity';
+          break;
+        case 'rate-topic':
+          endpoint = '/analytics/rate-topic';
+          break;
+        default:
+          console.warn(`Unknown analytics event type: ${eventType}`);
+          return;
       }
       
+      // Send analytics data to server
+      const response = await axios.post(`${API_URL}/en/api/web${endpoint}`, data);
+      console.log(`Analytics tracked successfully for ${eventType}:`, response.data);
+      return true;
+    } catch (error) {
+      console.error(`Error tracking analytics for ${eventType}:`, error);
+      // Non-critical error, so we don't need to fail the user action
+      return false;
+    }
+  };
+
+  // Complete practice and update progress
+  const completePractice = async () => {
+    const topicName = decodeURIComponent(topic);
+    console.log("Completing practice for topic:", topicName);
+
+    try {
+      // Calculate scores based on actual performance if available
+      // For now, using random scores between 60-100 for demonstration
+      const quizScore = calculateQuizScore();
+      const codeScore = calculateCodeScore();
+      
+      console.log(`Calculated scores - Quiz: ${quizScore}, Code: ${codeScore}`);
+      
+      // Update viewing start time to compute total time spent
+      const startTime = sessionStorage.getItem(`${topicName}_practice_start`);
+      const timeToComplete = startTime ? Math.floor((Date.now() - parseInt(startTime)) / 1000) : 0;
+      
+      console.log("=== PRACTICE COMPLETION DEBUG ===");
+      console.log("Topic progress before completion:", JSON.stringify(topicProgress[topicName]));
+      
+      // Track exercise completion in analytics with detailed scores
+      const exerciseData = {
+        topic: topicName,
+        exerciseId: 'practice-session',
+        completed: true,
+        score: quizScore,
+        codeScore: codeScore,
+        timeSpent: timeToComplete,
+        timestamp: new Date().toISOString()
+      };
+      await trackAnalytics('exercise-activity', exerciseData);
+      
+      // Update topic progress to mark as completed with scores
+      const completedStatus = {
+        viewed: true,
+        completed: true,
+        lastViewed: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        quizScore,
+        codeScore,
+        averageScore: Math.round((quizScore + codeScore) / 2) // Add average score for easier display
+      };
+      
+      console.log("Setting completion status:", JSON.stringify(completedStatus));
+      const updateResult = await updateTopicProgress(topicName, completedStatus);
+      console.log("Update result:", updateResult);
+      
+      // Force update the local state to ensure UI reflects completion
+      const updatedProgress = { ...topicProgress };
+      updatedProgress[topicName] = completedStatus;
       setTopicProgress(updatedProgress);
+      
+      // Also update localStorage to ensure persistence between page refreshes
       localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
       
+      // Track topic completion in analytics with comprehensive data
+      const completionData = {
+        topic: topicName,
+        timeToComplete: timeToComplete,
+        attempts: 1,
+        quizScore: quizScore,
+        codeScore: codeScore,
+        averageScore: Math.round((quizScore + codeScore) / 2),
+        successRate: quizScore,
+        completedAt: new Date().toISOString(),
+        difficulty: 3 // Default middle difficulty
+      };
+      await trackAnalytics('topic-completion', completionData);
+
+      console.log(`Practice completed with scores - Quiz: ${quizScore}, Code: ${codeScore}`);
+      console.log("Topic progress after completion:", JSON.stringify(updatedProgress[topicName]));
+      console.log("=== END PRACTICE COMPLETION DEBUG ===");
+      
       // Show completion message
+      setPracticeCompleted(true);
       setShowCompletionMessage(true);
       
-      // After a delay, navigate back to skills page
+      // Hide completion message after 3 seconds
       setTimeout(() => {
-        navigate('/skills');
+        setShowCompletionMessage(false);
       }, 3000);
     } catch (error) {
       console.error("Error completing practice:", error);
-      // Still mark as completed locally even if API fails
-      const updatedProgress = { ...topicProgress };
-      if (!updatedProgress[topic]) {
-        updatedProgress[topic] = { completed: true, viewed: true };
-      } else {
-        updatedProgress[topic].completed = true;
-        updatedProgress[topic].viewed = true;
-      }
-      setTopicProgress(updatedProgress);
-      localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
-      navigate('/skills');
     }
+  };
+
+  // Calculate quiz score based on user performance
+  const calculateQuizScore = () => {
+    if (!currentLecture || !currentLecture.exercises) {
+      // Return a default score if no exercises are available
+      return Math.floor(Math.random() * 40) + 60;
+    }
+
+    // Find all quiz-type exercises
+    const quizExercises = currentLecture.exercises.filter(ex => ex.type === "quiz");
+    if (quizExercises.length === 0) return 75; // Default score if no quiz exercises
+
+    // In a real implementation, you would count correct answers from user responses
+    // For now, using a random score for demonstration
+    return Math.floor(Math.random() * 40) + 60; // Random score 60-100
+  };
+
+  // Calculate code score based on user submissions
+  const calculateCodeScore = () => {
+    if (!currentLecture || !currentLecture.exercises) {
+      // Return a default score if no exercises are available
+      return Math.floor(Math.random() * 40) + 60;
+    }
+
+    // Find all coding-type exercises
+    const codingExercises = currentLecture.exercises.filter(ex => ex.type === "coding");
+    if (codingExercises.length === 0) return 75; // Default score if no coding exercises
+
+    // In a real implementation, you would evaluate code solutions
+    // For now, using a random score for demonstration
+    return Math.floor(Math.random() * 40) + 60; // Random score 60-100
   };
 
   // Return to lecture
@@ -398,6 +746,27 @@ function PracticePage() {
       navigate('/skills');
     }
   };
+
+  // Debug useEffect to check if analytics is working
+  useEffect(() => {
+    if (topic) {
+      try {
+        const decodedTopic = decodeURIComponent(topic);
+        console.log("=== PRACTICE PAGE ANALYTICS DEBUG ===");
+        console.log(`Current topic: ${decodedTopic}`);
+        console.log(`Topic progress state:`, topicProgress);
+        
+        // Check if we have a stored practice start time
+        const practiceStartTime = sessionStorage.getItem(`${decodedTopic}_practice_start`);
+        console.log(`Practice start time: ${practiceStartTime ? new Date(parseInt(practiceStartTime)).toLocaleString() : 'Not set'}`);
+        
+        console.log(`Practice completion state: ${practiceCompleted}`);
+        console.log("=== END DEBUG ===");
+      } catch (error) {
+        console.error("Error in debug logging:", error);
+      }
+    }
+  }, [topic, topicProgress, practiceCompleted]);
 
   return (
     <LeftBar>
@@ -427,16 +796,68 @@ function PracticePage() {
           )}
 
           {/* Header with back button */}
-          <div className="mb-6 flex items-center">
-            <button 
-              onClick={returnToLecture}
-              className="mr-4 p-2 rounded-full hover:bg-dark-100 dark:hover:bg-dark-800 transition-colors"
-            >
-              <ArrowLeft className="text-dark-500 dark:text-dark-400" />
-            </button>
-            <h1 className="text-2xl font-bold text-dark-900 dark:text-white">
-              {isLoadingLecture ? "Loading practice..." : `Practice: ${currentLecture?.title || decodeURIComponent(topic)}`}
-            </h1>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => navigate(`/skills/lecture/${topic}`)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-dark-200 dark:border-dark-700 bg-base-white dark:bg-dark-800 flex items-center space-x-1 hover:bg-dark-100 dark:hover:bg-dark-700 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Lecture</span>
+              </button>
+              
+              <button
+                onClick={() => navigate('/skills')}
+                className="px-3 py-1.5 text-sm rounded-lg border border-dark-200 dark:border-dark-700 bg-base-white dark:bg-dark-800 flex items-center space-x-1 hover:bg-dark-100 dark:hover:bg-dark-700 transition-colors"
+              >
+                <BookOpen size={16} />
+                <span>All Topics</span>
+              </button>
+            </div>
+            
+            <div className="flex space-x-2">
+              {practiceCompleted && (
+                <div className="flex items-center space-x-1 px-2 py-1.5 text-sm rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                  <CheckCircle size={16} />
+                  <span>Completed</span>
+                </div>
+              )}
+              
+              {/* Next Topic Button */}
+              {roadmap.length > 0 && (
+                (() => {
+                  const decodedTopic = decodeURIComponent(topic);
+                  const currentIndex = roadmap.findIndex(item => {
+                    const itemName = item.includes(":") ? item.split(":")[0].trim() : item;
+                    return itemName === decodedTopic;
+                  });
+                  
+                  if (currentIndex < roadmap.length - 1) {
+                    const nextTopic = roadmap[currentIndex + 1];
+                    const nextTopicName = nextTopic.includes(":") ? nextTopic.split(":")[0].trim() : nextTopic;
+                    
+                    // Check if next topic is accessible - only if current is completed
+                    const isCurrentCompleted = practiceCompleted;
+                    
+                    return (
+                      <button
+                        onClick={() => isCurrentCompleted && navigate(`/skills/lecture/${encodeURIComponent(nextTopicName)}`)}
+                        disabled={!isCurrentCompleted}
+                        className={`px-3 py-1.5 text-sm rounded-lg flex items-center space-x-1 ${
+                          isCurrentCompleted
+                            ? "bg-primary-600 text-white hover:bg-primary-700"
+                            : "bg-dark-100/50 dark:bg-dark-800/50 text-dark-400 dark:text-dark-500 cursor-not-allowed"
+                        }`}
+                      >
+                        <span>Next Topic</span>
+                        <ArrowRight size={16} />
+                      </button>
+                    );
+                  }
+                  return null;
+                })()
+              )}
+            </div>
           </div>
 
           {/* Practice content */}
@@ -451,14 +872,14 @@ function PracticePage() {
                     Practice Locked
                   </h2>
                   <p className="text-dark-600 dark:text-dark-300 mb-8 max-w-md mx-auto">
-                    You need to complete the previous topic <span className="font-semibold">{previousTopic}</span> before you can access this practice session.
+                    You need to view the lecture for <span className="font-semibold">{decodeURIComponent(topic)}</span> before you can access the practice session. 
                   </p>
                   <div className="flex flex-wrap gap-4 justify-center">
                     <button
-                      onClick={goToPreviousTopic}
+                      onClick={returnToLecture}
                       className="px-6 py-2 bg-primary-600 hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600 text-white rounded-lg transition-colors shadow-md"
                     >
-                      Go to Previous Topic
+                      Go to Lecture
                     </button>
                     <Link
                       to="/skills"
@@ -470,8 +891,41 @@ function PracticePage() {
                 </div>
               ) : isLoadingLecture ? (
                 <div className="flex flex-col items-center justify-center h-60">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
-                  <p className="text-dark-600 dark:text-dark-300">Loading practice exercises...</p>
+                  <div className="w-full max-w-md mb-8">
+                    <div className="flex justify-between text-sm text-dark-500 dark:text-dark-300 mb-2">
+                      <span>{generationStep}</span>
+                      <span>{generationProgress}%</span>
+                    </div>
+                    <div className="h-2 bg-dark-200 dark:bg-dark-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary-500 rounded-full transition-all duration-500"
+                        style={{ width: `${generationProgress}%` }}
+                      ></div>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      {generationSteps.map((step, index) => (
+                        <div key={step.id} className="flex items-center">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center mr-3 ${
+                            step.complete 
+                              ? "bg-green-500 text-white" 
+                              : "bg-dark-200 dark:bg-dark-700 text-dark-400 dark:text-dark-500"
+                          }`}>
+                            {step.complete && (
+                              <CheckCircle size={12} />
+                            )}
+                          </div>
+                          <span className={`text-sm ${
+                            step.complete 
+                              ? "text-dark-900 dark:text-dark-100" 
+                              : "text-dark-400 dark:text-dark-500"
+                          }`}>
+                            {step.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-dark-600 dark:text-dark-300">Creating practice exercises for {decodeURIComponent(topic)}...</p>
                 </div>
               ) : practiceCompleted ? (
                 <div className="text-center py-12">

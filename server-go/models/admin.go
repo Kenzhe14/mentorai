@@ -1,8 +1,8 @@
 package models
 
 import (
-	"gorm.io/gorm"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // Admin represents an administrator in the system
@@ -39,4 +39,29 @@ func (a *Admin) BeforeUpdate(tx *gorm.DB) error {
 // ComparePassword compares a plain text password with the admin's hashed password
 func (a *Admin) ComparePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(a.Password), []byte(password))
-} 
+}
+
+// createSuperAdmin creates a default super admin user if none exists
+func createSuperAdmin(db *gorm.DB) error {
+	// Check if any admin exists
+	var count int64
+	if err := db.Model(&Admin{}).Count(&count).Error; err != nil {
+		return err
+	}
+
+	// If no admin exists, create a default super admin
+	if count == 0 {
+		defaultAdmin := Admin{
+			Username: "admin",
+			Email:    "admin@mentorai.com",
+			Password: "password123", // This will be hashed by the BeforeCreate hook
+			Role:     "super_admin",
+		}
+
+		if err := db.Create(&defaultAdmin).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

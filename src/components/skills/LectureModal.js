@@ -239,7 +239,19 @@ const LectureModal = ({
   // Check if the current topic is completed
   const isTopicCompleted = () => {
     if (!currentLecture || !topicProgress) return false;
-    return topicProgress[currentLecture.title]?.completed === true;
+    
+    const topicName = currentLecture.title || '';
+    const status = topicProgress[topicName];
+    
+    if (!status) return false;
+    
+    // Check all variations of completed/Completed properties
+    return (
+      status.completed === true || 
+      status.Completed === true ||
+      status.completed === "true" || 
+      status.Completed === "true"
+    );
   };
 
   return (
@@ -250,7 +262,7 @@ const LectureModal = ({
             {isLoadingLecture ? "Loading lecture..." : currentLecture?.title}
             {isTopicCompleted() && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-                <CheckCircle size={12} className="mr-1" /> Completed
+                <CheckCircle size={12} className="mr-1" /> Пройдено
               </span>
             )}
           </h2>
@@ -338,7 +350,7 @@ const LectureModal = ({
                         </h3>
                         <p className="text-sm text-dark-600 dark:text-dark-400">
                           {isTopicCompleted() 
-                            ? "You've completed all exercises for this topic!" 
+                            ? "Вы прошли все упражнения для этой темы!" 
                             : `Reinforce your learning with ${currentLecture.exercises.length} practice exercises.`}
                         </p>
                       </div>
@@ -350,7 +362,7 @@ const LectureModal = ({
                             : 'bg-primary-600 text-white hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600'}`}
                       >
                         {isTopicCompleted()
-                          ? <><CheckCircle size={14} /> Review Practice</>
+                          ? <><CheckCircle size={14} /> Practice Again</>
                           : <><Trophy size={14} /> Start Practice</>}
                       </button>
                     </div>

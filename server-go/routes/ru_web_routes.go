@@ -19,6 +19,8 @@ func RegisterRuWebRoutes(router *gin.Engine, db *gorm.DB) {
 	lectureController := controllers.NewLectureController(*baseController)
 	chatController := controllers.NewChatController(*baseController)
 	exerciseController := controllers.NewExerciseController(*baseController)
+	progressController := controllers.NewProgressController(*baseController)
+	analyticsController := controllers.NewAnalyticsController(*baseController)
 
 	// Create web routes group
 	ruWebRoutes := router.Group("/ru/api/web")
@@ -34,6 +36,19 @@ func RegisterRuWebRoutes(router *gin.Engine, db *gorm.DB) {
 		ruWebRoutes.POST("/chat", chatController.SendChatMessage)
 		ruWebRoutes.GET("/chat/sessions", chatController.GetChatSessions)
 		ruWebRoutes.GET("/chat/history/:id", chatController.GetChatHistory)
+
+		// Progress routes
+		ruWebRoutes.GET("/progress", progressController.GetUserProgress)
+		ruWebRoutes.POST("/progress", progressController.UpdateTopicProgress)
+		ruWebRoutes.GET("/progress/:topic", progressController.GetTopicProgress)
+
+		// Analytics routes
+		ruWebRoutes.GET("/analytics", analyticsController.GetUserAnalytics)
+		ruWebRoutes.POST("/analytics/topic-view", analyticsController.TrackTopicView)
+		ruWebRoutes.POST("/analytics/topic-completion", analyticsController.TrackTopicCompletion)
+		ruWebRoutes.POST("/analytics/exercise-activity", analyticsController.TrackExerciseActivity)
+		ruWebRoutes.POST("/analytics/rate-topic", analyticsController.RateTopic)
+		ruWebRoutes.GET("/analytics/global", analyticsController.GetGlobalAnalytics)
 	}
 
 	// Note: Public routes for Russian API are defined in web_routes.go

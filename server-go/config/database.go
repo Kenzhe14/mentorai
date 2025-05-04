@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"mentorback/models"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"mentorback/models"
 )
 
 // InitDatabase initializes and returns a database connection
@@ -58,6 +59,7 @@ func MigrateDatabase(db *gorm.DB) error {
 		&models.ChatSession{},
 		&models.ChatMessage{},
 		&models.PersonalizedContent{},
+		&models.UserProgress{},
 	)
 
 	if err != nil {
@@ -66,4 +68,4 @@ func MigrateDatabase(db *gorm.DB) error {
 
 	fmt.Println("Database migration completed successfully.")
 	return nil
-} 
+}

@@ -1,280 +1,529 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../index.css";
 import LeftBar from "../components/sidebar";
-import { ChartBar, BookOpen, Clock, Award, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowRight, BookOpen, ChartBar, Clock, Award, Target, CheckCircle, BarChart2, PieChart, Calendar, Activity, ArrowUpRight } from "lucide-react";
 import ProgressOverview from "../components/skills/ProgressOverview";
+import axios from "axios";
+
+// API URL
+const API_URL = "http://localhost:5000";
 
 function Dashboard() {
-    const [user, setUser] = useState({ username: "" });
-    const [isMobile, setIsMobile] = useState(false);
+    const [userData, setUserData] = useState({});
     const [topicProgress, setTopicProgress] = useState({});
     const [roadmap, setRoadmap] = useState([]);
-    const [nextTopics, setNextTopics] = useState([]);
-    const [achievements, setAchievements] = useState([]);
-    const [learningTime, setLearningTime] = useState({ current: 0, previous: 0, goal: 20 });
+    const [analytics, setAnalytics] = useState(null);
+    const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(true);
+    const [globalAnalytics, setGlobalAnalytics] = useState(null);
+    const [activeTab, setActiveTab] = useState("overview");
 
-    // Load data from localStorage on component mount
     useEffect(() => {
         // Load user data
-        const userData = localStorage.getItem("user");
-        if (userData) {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
             try {
-                const parsedUser = JSON.parse(userData);
-                setUser(parsedUser);
+                setUserData(JSON.parse(storedUser));
             } catch (error) {
                 console.error("Error parsing user data:", error);
             }
         }
 
-        // Load progress data
-        let parsedProgress = {};
-        const savedProgress = localStorage.getItem("topicProgress");
-        if (savedProgress) {
-            try {
-                parsedProgress = JSON.parse(savedProgress);
-                setTopicProgress(parsedProgress);
-            } catch (error) {
-                console.error("Error parsing progress data:", error);
-            }
-        }
+        // Load topic progress
+        fetchTopicProgress();
+        
+        // Load analytics data
+        fetchAnalytics();
+        
+        // Load global analytics
+        fetchGlobalAnalytics();
 
         // Load roadmap data
         const savedRoadmap = localStorage.getItem("lastRoadmap");
         if (savedRoadmap) {
             try {
-                const parsedRoadmap = JSON.parse(savedRoadmap);
-                setRoadmap(parsedRoadmap);
-                
-                // Extract next topics (not completed topics)
-                const inProgressOrNotStarted = parsedRoadmap
-                    .filter(topic => {
-                        // Get clean topic name
-                        let topicName = topic;
-                        if (topic && topic.includes && topic.includes(":")) {
-                            topicName = topic.split(":")[0].trim();
-                        }
-                        const status = parsedProgress[topicName];
-                        return status !== "completed";
-                    })
-                    .slice(0, 2); // Take first 2 uncompleted topics
-                
-                setNextTopics(inProgressOrNotStarted);
-                
-                // Extract achievements (completed topics)
-                const completedTopics = Object.entries(parsedProgress)
-                    .filter(([_, status]) => status === "completed")
-                    .map(([topic]) => ({
-                        name: topic,
-                        date: new Date(Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000) // Random date within last 2 weeks
-                    }))
-                    .sort((a, b) => b.date - a.date) // Sort most recent first
-                    .slice(0, 3); // Take top 3
-                
-                setAchievements(completedTopics);
-                
-                // Simulate learning time data
-                const timeData = {
-                    current: Math.round((Object.values(parsedProgress).filter(s => s === "completed").length * 4) + 
-                              (Object.values(parsedProgress).filter(s => s === "in-progress").length * 2)),
-                    previous: Math.round((Object.values(parsedProgress).filter(s => s === "completed").length * 2.5) + 
-                               (Object.values(parsedProgress).filter(s => s === "in-progress").length * 1.5)),
-                    goal: 20
-                };
-                setLearningTime(timeData);
+                setRoadmap(JSON.parse(savedRoadmap));
             } catch (error) {
-                console.error("Error parsing roadmap data:", error);
+                console.error("Error parsing roadmap:", error);
             }
         }
     }, []);
 
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-
-        checkScreenSize();
-        window.addEventListener("resize", checkScreenSize);
-        return () => window.removeEventListener("resize", checkScreenSize);
-    }, []);
-
-    // Compute stats for the dashboard
-    const completedCount = Object.values(topicProgress).filter(status => status === "completed").length;
-    const inProgressCount = Object.values(topicProgress).filter(status => status === "in-progress").length;
-    const totalHours = completedCount * 4 + inProgressCount * 2; // Estimate 4 hours per completed topic, 2 for in-progress
-
-    const stats = [
-        { label: "Skills in Progress", value: inProgressCount, icon: <BookOpen size={20} />, color: "bg-blue-500" },
-        { label: "Skills Completed", value: completedCount, icon: <Award size={20} />, color: "bg-green-500" },
-        { label: "Hours Learned", value: totalHours, icon: <Clock size={20} />, color: "bg-purple-500" },
-    ];
-
-    // Function to format a date
-    const formatTimeAgo = (date) => {
-        const now = new Date();
-        const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-        
-        if (diffInDays === 0) return "Today";
-        if (diffInDays === 1) return "Yesterday";
-        if (diffInDays < 7) return `${diffInDays} days ago`;
-        if (diffInDays < 14) return "1 week ago";
-        if (diffInDays < 30) return `${Math.floor(diffInDays/7)} weeks ago`;
-        return `${Math.floor(diffInDays/30)} months ago`;
+    // Fetch user analytics from API
+    const fetchAnalytics = async () => {
+        setIsLoadingAnalytics(true);
+        try {
+            const response = await axios.get(`${API_URL}/en/api/web/analytics`);
+            if (response.data) {
+                setAnalytics(response.data);
+                console.log("Fetched analytics data:", response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching user analytics:", error);
+        } finally {
+            setIsLoadingAnalytics(false);
+        }
     };
+    
+    // Fetch global analytics (platform-wide)
+    const fetchGlobalAnalytics = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/en/api/web/analytics/global`);
+            if (response.data) {
+                setGlobalAnalytics(response.data);
+                console.log("Fetched global analytics:", response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching global analytics:", error);
+        }
+    };
+
+    // Fetch topic progress from API
+    const fetchTopicProgress = async () => {
+        try {
+            const response = await axios.get(`${API_URL}/en/api/web/progress`);
+            if (response.data && response.data.progress && response.data.progress.TopicProgress) {
+                setTopicProgress(response.data.progress.TopicProgress);
+            }
+        } catch (error) {
+            console.error("Error fetching topic progress:", error);
+            
+            // Fallback to localStorage
+            const localProgress = localStorage.getItem("topicProgress");
+            if (localProgress) {
+                try {
+                    setTopicProgress(JSON.parse(localProgress));
+                } catch (e) {
+                    console.error("Error parsing local progress:", e);
+                }
+            }
+        }
+    };
+
+    // Format time spent (minutes to hours:minutes)
+    const formatTimeSpent = (minutes) => {
+        if (!minutes) return "0 min";
+        
+        if (minutes < 60) {
+            return `${minutes} min`;
+        }
+        
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        
+        return `${hours}h ${mins}m`;
+    };
+
+    // Get user stats from analytics
+    const getAnalyticsStats = () => {
+        if (!analytics || !analytics.analytics) {
+            return {
+                streakDays: 0,
+                totalTopics: 0,
+                viewedTopics: 0,
+                completedTopics: 0,
+                totalTimeMinutes: 0,
+                avgQuizScore: 0,
+                completionRate: 0,
+                exercisesCompleted: 0
+            };
+        }
+        
+        const data = analytics.analytics;
+        return {
+            streakDays: data.streakDays || 0,
+            totalTopics: roadmap.length || 0,
+            viewedTopics: data.topicsViewed || 0,
+            completedTopics: data.topicsCompleted || 0,
+            totalTimeMinutes: data.totalLearningTime || 0,
+            avgQuizScore: data.averageQuizScore || 0,
+            completionRate: data.topicsCompleted / (roadmap.length || 1) * 100,
+            exercisesCompleted: data.exercisesCompleted || 0
+        };
+    };
+
+    const stats = getAnalyticsStats();
 
     return (
         <LeftBar>
-            <div className={`${isMobile ? "mt-16" : ""} p-4 bg-dark-50 dark:bg-dark-950 min-h-screen`}>
-                {/* Header */}
-                <div className="max-w-7xl mx-auto p-4 mb-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h1 className="text-3xl font-bold text-dark-900 dark:text-white">Dashboard</h1>
-                    </div>
-
-                    {/* Stats Overview */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                        {stats.map((stat, index) => (
-                            <div
-                                key={index}
-                                className="bg-base-white dark:bg-dark-900 rounded-xl p-4 shadow-md border border-dark-200/10 dark:border-dark-800/50"
-                            >
-                                <div className="flex items-center">
-                                    <div className={`${stat.color} p-3 rounded-lg text-white mr-4`}>
-                                        {stat.icon}
-                                    </div>
-                                    <div>
-                                        <p className="text-dark-500 dark:text-dark-400 text-sm">{stat.label}</p>
-                                        <h3 className="text-2xl font-bold text-dark-900 dark:text-white">{stat.value}</h3>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Main Content Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Skills Progress */}
-                        <div className="md:col-span-2">
-                            <h2 className="text-xl font-bold mb-4 text-dark-900 dark:text-white flex items-center">
-                                <ChartBar className="mr-2 text-primary-500" size={24} />
-                                Your Learning Progress
-                            </h2>
-                            <div className="bg-base-white dark:bg-dark-900 rounded-xl p-6 shadow-md border border-dark-200/10 dark:border-dark-800/50">
-                                <ProgressOverview roadmap={roadmap} topicProgress={topicProgress} />
-
-                                <div className="mt-6 pt-6 border-t border-dark-200/20 dark:border-dark-700/30">
-                                    <h3 className="font-bold text-lg text-dark-900 dark:text-white mb-4">Next Topics</h3>
-                                    {nextTopics.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {nextTopics.map((topic, index) => {
-                                                let topicName = topic;
-                                                if (topic && topic.includes && topic.includes(":")) {
-                                                    topicName = topic.split(":")[0].trim();
-                                                }
-                                                
-                                                // You can add more dynamic descriptions in the future
-                                                const descriptions = {
-                                                    "JavaScript": "Functions, Objects, Promises",
-                                                    "React": "Components, Hooks, State Management",
-                                                    "CSS": "Flexbox, Grid, Animations",
-                                                    "HTML": "Semantic Elements, Accessibility, Forms",
-                                                    "Node.js": "Express, APIs, Authentication",
-                                                    "Python": "Data Types, Functions, OOP",
-                                                };
-                                                
-                                                // Find a matching description or use a generic one
-                                                let description = "Core concepts and practical applications";
-                                                for (const [key, value] of Object.entries(descriptions)) {
-                                                    if (topicName.toLowerCase().includes(key.toLowerCase())) {
-                                                        description = value;
-                                                        break;
-                                                    }
-                                                }
-                                                
-                                                return (
-                                                    <div key={index} className="flex justify-between items-center">
-                                                        <div>
-                                                            <p className="font-medium text-dark-900 dark:text-white">{topicName}</p>
-                                                            <p className="text-sm text-dark-500 dark:text-dark-400">{description}</p>
-                                                        </div>
-                                                        <Link 
-                                                            to="/skills" 
-                                                            className="text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300"
-                                                        >
-                                                            <ArrowRight size={20} />
-                                                        </Link>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-dark-500 dark:text-dark-400">
-                                            You don't have any topics in progress. Start learning a new skill!
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Sidebar Content */}
-                        <div>
-                            <h2 className="text-xl font-bold mb-4 text-dark-900 dark:text-white flex items-center">
-                                <BookOpen className="mr-2 text-primary-500" size={24} />
-                                Recent Achievements
-                            </h2>
-                            <div className="bg-base-white dark:bg-dark-900 rounded-xl p-6 shadow-md border border-dark-200/10 dark:border-dark-800/50 mb-6">
-                                <div className="space-y-4">
-                                    {achievements.length > 0 ? (
-                                        achievements.map((achievement, index) => {
-                                            // Assign a different color to each achievement
-                                            const colors = ["green", "blue", "purple"];
-                                            const color = colors[index % colors.length];
-                                            
-                                            return (
-                                                <div key={index} className="flex items-start">
-                                                    <div className={`bg-${color}-100 dark:bg-${color}-900/30 p-2 rounded-full mr-3`}>
-                                                        <Award className={`text-${color}-500`} size={20} />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium text-dark-900 dark:text-white">{achievement.name}</p>
-                                                        <p className="text-sm text-dark-500 dark:text-dark-400">
-                                                            Completed {formatTimeAgo(achievement.date)}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <p className="text-dark-500 dark:text-dark-400">
-                                            You haven't completed any topics yet. Keep learning!
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <h2 className="text-xl font-bold mb-4 text-dark-900 dark:text-white flex items-center">
-                                <Clock className="mr-2 text-primary-500" size={24} />
-                                Time Spent
-                            </h2>
-                            <div className="bg-base-white dark:bg-dark-900 rounded-xl p-6 shadow-md border border-dark-200/10 dark:border-dark-800/50">
-                                <div className="flex justify-between items-center mb-4">
-                                    <p className="text-dark-900 dark:text-white font-medium">This Week</p>
-                                    <p className="text-primary-500 dark:text-primary-400 font-bold">{learningTime.current} hours</p>
-                                </div>
-                                <div className="h-2 bg-dark-200 dark:bg-dark-700 rounded-full mb-4">
-                                    <div 
-                                        className="h-2 bg-primary-500 rounded-full" 
-                                        style={{ width: `${Math.min(100, (learningTime.current / learningTime.goal) * 100)}%` }}
-                                    ></div>
-                                </div>
-                                <div className="flex justify-between text-sm text-dark-500 dark:text-dark-400">
-                                    <span>Previous: {learningTime.previous} hours</span>
-                                    <span>Goal: {learningTime.goal} hours</span>
-                                </div>
-                            </div>
-                        </div>
+            <div className="p-6 bg-dark-50 dark:bg-dark-950 min-h-screen">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold text-dark-900 dark:text-white">Learning Dashboard</h1>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={() => setActiveTab("overview")}
+                            className={`px-4 py-2 rounded-lg transition ${
+                                activeTab === "overview"
+                                    ? "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                                    : "text-dark-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-800"
+                            }`}
+                        >
+                            Overview
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("progress")}
+                            className={`px-4 py-2 rounded-lg transition ${
+                                activeTab === "progress"
+                                    ? "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                                    : "text-dark-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-800"
+                            }`}
+                        >
+                            Progress
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("activity")}
+                            className={`px-4 py-2 rounded-lg transition ${
+                                activeTab === "activity"
+                                    ? "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                                    : "text-dark-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-800"
+                            }`}
+                        >
+                            Activity
+                        </button>
                     </div>
                 </div>
+
+                {/* Overview Tab */}
+                {activeTab === "overview" && (
+                    <>
+                        {/* Stats cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white dark:bg-dark-900 p-4 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm text-dark-500 dark:text-dark-400">Learning Streak</span>
+                                        <h3 className="text-2xl font-bold text-dark-900 dark:text-white">{stats.streakDays} days</h3>
+                                    </div>
+                                    <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                                        <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-dark-900 p-4 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm text-dark-500 dark:text-dark-400">Topics Completed</span>
+                                        <h3 className="text-2xl font-bold text-dark-900 dark:text-white">
+                                            {stats.completedTopics}/{stats.totalTopics}
+                                        </h3>
+                                    </div>
+                                    <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
+                                        <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-dark-900 p-4 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm text-dark-500 dark:text-dark-400">Total Learning Time</span>
+                                        <h3 className="text-2xl font-bold text-dark-900 dark:text-white">{formatTimeSpent(stats.totalTimeMinutes)}</h3>
+                                    </div>
+                                    <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg">
+                                        <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-dark-900 p-4 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-sm text-dark-500 dark:text-dark-400">Average Quiz Score</span>
+                                        <h3 className="text-2xl font-bold text-dark-900 dark:text-white">{Math.round(stats.avgQuizScore)}%</h3>
+                                    </div>
+                                    <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-lg">
+                                        <Award className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Weekly activity and completion progress */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            {/* Weekly activity chart */}
+                            <div className="bg-white dark:bg-dark-900 p-6 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                                <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Weekly Activity</h3>
+                                
+                                {analytics && analytics.dailyActivity && analytics.dailyActivity.length > 0 ? (
+                                    <div className="space-y-6">
+                                        <div className="flex justify-between items-end h-40">
+                                            {analytics.dailyActivity.slice(-7).map((day, i) => (
+                                                <div key={i} className="flex flex-col items-center flex-1">
+                                                    <div className="w-full flex justify-center">
+                                                        <div 
+                                                            className="w-4/5 bg-primary-500 dark:bg-primary-600 rounded-t transition-all duration-300"
+                                                            style={{ 
+                                                                height: `${Math.min(100, (day.learningTimeMin / 60) * 100)}%`,
+                                                                minHeight: day.learningTimeMin > 0 ? '8px' : '0'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="text-xs text-dark-500 dark:text-dark-400 mt-2">
+                                                        {new Date(day.date).toLocaleDateString(undefined, { weekday: 'short' })}
+                                                    </div>
+                                                    <div className="text-xs font-medium text-dark-700 dark:text-dark-300">
+                                                        {day.learningTimeMin}m
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <div className="text-green-600 dark:text-green-400 font-medium flex items-center">
+                                                <ArrowUpRight className="h-4 w-4 mr-1" />
+                                                {analytics.dailyActivity.length > 0 ? 
+                                                    `${analytics.dailyActivity.reduce((sum, day) => sum + day.learningTimeMin, 0)} min this week` : 
+                                                    'No data yet'}
+                                            </div>
+                                            <div className="text-dark-500 dark:text-dark-400">
+                                                {analytics.dailyActivity.length > 0 ? 
+                                                    `${analytics.dailyActivity.filter(day => day.learningTimeMin > 0).length} active days` : 
+                                                    '0 active days'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center items-center h-40 text-dark-400 dark:text-dark-500">
+                                        No activity data available yet
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Completion progress */}
+                            <div className="bg-white dark:bg-dark-900 p-6 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                                <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Learning Progress</h3>
+                                
+                                <div className="space-y-6">
+                                    {/* Progress bars */}
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="flex justify-between mb-1">
+                                                <span className="text-sm text-dark-700 dark:text-dark-300">Topics Completion</span>
+                                                <span className="text-sm font-medium text-dark-900 dark:text-white">
+                                                    {stats.completedTopics}/{stats.totalTopics}
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 bg-dark-100 dark:bg-dark-800 rounded-full">
+                                                <div 
+                                                    className="h-2 bg-green-500 dark:bg-green-600 rounded-full"
+                                                    style={{ width: `${(stats.completedTopics / (stats.totalTopics || 1)) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <div className="flex justify-between mb-1">
+                                                <span className="text-sm text-dark-700 dark:text-dark-300">Total Views</span>
+                                                <span className="text-sm font-medium text-dark-900 dark:text-white">
+                                                    {stats.viewedTopics}
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 bg-dark-100 dark:bg-dark-800 rounded-full">
+                                                <div 
+                                                    className="h-2 bg-blue-500 dark:bg-blue-600 rounded-full"
+                                                    style={{ width: `${(stats.viewedTopics / (stats.totalTopics || 1)) * 100}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div>
+                                            <div className="flex justify-between mb-1">
+                                                <span className="text-sm text-dark-700 dark:text-dark-300">Exercises Completed</span>
+                                                <span className="text-sm font-medium text-dark-900 dark:text-white">
+                                                    {stats.exercisesCompleted}
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 bg-dark-100 dark:bg-dark-800 rounded-full">
+                                                <div 
+                                                    className="h-2 bg-purple-500 dark:bg-purple-600 rounded-full"
+                                                    style={{ width: `${Math.min(100, (stats.exercisesCompleted / 10) * 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Overall completion status */}
+                                    <div className="bg-dark-50 dark:bg-dark-800/30 rounded-lg p-4 flex items-center justify-between">
+                                        <div>
+                                            <span className="text-sm text-dark-600 dark:text-dark-300">Overall Completion</span>
+                                            <div className="text-lg font-bold text-dark-900 dark:text-white">{Math.round(stats.completionRate)}%</div>
+                                        </div>
+                                        <div className="h-16 w-16 rounded-full bg-dark-100 dark:bg-dark-700 flex items-center justify-center relative">
+                                            <svg className="h-16 w-16 transform -rotate-90">
+                                                <circle
+                                                    cx="32"
+                                                    cy="32"
+                                                    r="24"
+                                                    fill="none"
+                                                    stroke="#e5e7eb"
+                                                    strokeWidth="8"
+                                                    className="dark:opacity-30"
+                                                />
+                                                <circle
+                                                    cx="32"
+                                                    cy="32"
+                                                    r="24"
+                                                    fill="none"
+                                                    stroke="#10b981"
+                                                    strokeWidth="8"
+                                                    strokeDasharray={`${24 * 2 * Math.PI}`}
+                                                    strokeDashoffset={`${24 * 2 * Math.PI - (stats.completionRate / 100) * 24 * 2 * Math.PI}`}
+                                                    className="transition-all duration-1000"
+                                                />
+                                            </svg>
+                                            <span className="absolute text-sm font-bold text-dark-900 dark:text-white">
+                                                {Math.round(stats.completionRate)}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Most viewed topics */}
+                        <div className="bg-white dark:bg-dark-900 p-6 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50 mb-6">
+                            <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Most Viewed Topics</h3>
+                            
+                            {analytics && analytics.topInteractions && analytics.topInteractions.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-dark-200 dark:divide-dark-700">
+                                        <thead className="bg-dark-50 dark:bg-dark-800/30">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Topic</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Views</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Time Spent</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-dark-500 dark:text-dark-400 uppercase tracking-wider">Last Visited</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white dark:bg-dark-900 divide-y divide-dark-200 dark:divide-dark-700">
+                                            {analytics.topInteractions.slice(0, 5).map((topic, index) => (
+                                                <tr key={index} className="hover:bg-dark-50 dark:hover:bg-dark-800/30 transition-colors">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm font-medium text-dark-900 dark:text-white">{topic.topicName}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm text-dark-700 dark:text-dark-300">{topic.viewCount}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="text-sm text-dark-700 dark:text-dark-300">{formatTimeSpent(topic.timeSpent || 0)}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {topic.completedAt ? (
+                                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
+                                                                Completed
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400">
+                                                                In Progress
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700 dark:text-dark-300">
+                                                        {topic.lastViewed ? new Date(topic.lastViewed).toLocaleDateString() : 'N/A'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-dark-500 dark:text-dark-400">
+                                    No topic activity data available yet
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {/* Progress Tab */}
+                {activeTab === "progress" && (
+                    <div className="bg-white dark:bg-dark-900 p-6 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                        <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Your Learning Journey</h3>
+                        <ProgressOverview 
+                            roadmap={roadmap} 
+                            topicProgress={topicProgress}
+                            isCompact={false}
+                            showViewAll={false} 
+                        />
+                    </div>
+                )}
+
+                {/* Activity Tab */}
+                {activeTab === "activity" && (
+                    <div className="space-y-6">
+                        {/* Daily learning streak */}
+                        <div className="bg-white dark:bg-dark-900 p-6 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                            <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Daily Learning Streak</h3>
+                            
+                            {analytics && analytics.dailyActivity && analytics.dailyActivity.length > 0 ? (
+                                <div className="grid grid-cols-7 gap-2">
+                                    {Array.from({ length: 28 }, (_, i) => {
+                                        const dayIndex = analytics.dailyActivity.length - 28 + i;
+                                        const day = dayIndex >= 0 ? analytics.dailyActivity[dayIndex] : null;
+                                        
+                                        let bgColor = "bg-dark-100 dark:bg-dark-800";
+                                        if (day && day.learningTimeMin > 0) {
+                                            if (day.learningTimeMin < 15) {
+                                                bgColor = "bg-green-200 dark:bg-green-900/30";
+                                            } else if (day.learningTimeMin < 30) {
+                                                bgColor = "bg-green-300 dark:bg-green-800/50";
+                                            } else if (day.learningTimeMin < 60) {
+                                                bgColor = "bg-green-400 dark:bg-green-700/70";
+                                            } else {
+                                                bgColor = "bg-green-500 dark:bg-green-600";
+                                            }
+                                        }
+                                        
+                                        return (
+                                            <div key={i} className={`h-10 rounded-md ${bgColor} flex items-center justify-center`}>
+                                                {day && (
+                                                    <span className="text-xs font-medium text-dark-900 dark:text-white">
+                                                        {new Date(day.date).getDate()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-dark-500 dark:text-dark-400">
+                                    No activity data available yet
+                                </div>
+                            )}
+                            
+                            <div className="mt-4 flex items-center justify-between text-sm text-dark-500 dark:text-dark-400">
+                                <div>Less</div>
+                                <div className="flex space-x-1">
+                                    <div className="w-4 h-4 rounded bg-dark-100 dark:bg-dark-800"></div>
+                                    <div className="w-4 h-4 rounded bg-green-200 dark:bg-green-900/30"></div>
+                                    <div className="w-4 h-4 rounded bg-green-300 dark:bg-green-800/50"></div>
+                                    <div className="w-4 h-4 rounded bg-green-400 dark:bg-green-700/70"></div>
+                                    <div className="w-4 h-4 rounded bg-green-500 dark:bg-green-600"></div>
+                                </div>
+                                <div>More</div>
+                            </div>
+                        </div>
+                        
+                        {/* Recent activities */}
+                        <div className="bg-white dark:bg-dark-900 p-6 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
+                            <h3 className="text-lg font-bold text-dark-900 dark:text-white mb-4">Recent Activities</h3>
+                            
+                            {analytics && analytics.recentActivities && analytics.recentActivities.length > 0 ? (
+                                <div className="space-y-4">
+                                    {analytics.recentActivities.map((activity, index) => (
+                                        <div key={index} className="border-l-2 border-primary-500 dark:border-primary-600 pl-4 py-2">
+                                            <div className="text-sm font-medium text-dark-900 dark:text-white">{activity.description}</div>
+                                            <div className="text-xs text-dark-500 dark:text-dark-400 mt-1">
+                                                {new Date(activity.timestamp).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-dark-500 dark:text-dark-400">
+                                    No recent activities to display
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </LeftBar>
     );

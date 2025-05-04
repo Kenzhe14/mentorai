@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "../index.css";
 import LeftBar from "../components/sidebar";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Clock, Trophy, Download, MessageSquare, Star, ArrowLeft, Lock, BookOpen, Code, List, BarChart, ExternalLink, Github, CheckCircle } from "lucide-react";
+import { Clock, Trophy, Download, MessageSquare, Star, ArrowLeft, Lock, BookOpen, Code, List, BarChart, ExternalLink, Github, CheckCircle, ArrowRight } from "lucide-react";
 import axios from "axios";
 
 // Add API_URL constant
@@ -21,6 +21,16 @@ function LecturePage() {
   const [previousTopic, setPreviousTopic] = useState(null);
   const [readingProgress, setReadingProgress] = useState(0);
   const [activeSection, setActiveSection] = useState(null);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStep, setGenerationStep] = useState("");
+  const [generationSteps, setGenerationSteps] = useState([
+    { id: 'research', label: 'Researching topic', complete: false },
+    { id: 'outline', label: 'Creating outline', complete: false },
+    { id: 'content', label: 'Generating content', complete: false },
+    { id: 'examples', label: 'Adding examples', complete: false },
+    { id: 'exercises', label: 'Creating exercises', complete: false },
+    { id: 'finalize', label: 'Finalizing lecture', complete: false }
+  ]);
   const contentRef = React.useRef(null);
 
   useEffect(() => {
@@ -81,7 +91,10 @@ function LecturePage() {
       const prevTopicName = prevTopic.includes(":") ? prevTopic.split(":")[0].trim() : prevTopic;
       
       setPreviousTopic(prevTopicName);
-      const isPrevCompleted = topicProgress[prevTopicName] === "completed";
+      
+      // Use the isTopicCompleted helper to check all possible completion formats
+      const isPrevCompleted = isTopicCompleted(prevTopicName);
+      console.log(`Previous topic ${prevTopicName} completed status:`, isPrevCompleted);
       setIsAccessible(isPrevCompleted);
     }
   }, [topic, roadmap, topicProgress]);
@@ -149,29 +162,118 @@ function LecturePage() {
   const loadLecture = async (topicName) => {
     setIsLoadingLecture(true);
     setCurrentLecture(null);
+    setGenerationProgress(0);
+    setGenerationStep("Initializing...");
+    
+    setGenerationSteps(prev => prev.map(step => ({ ...step, complete: false })));
 
     try {
+      // Record start time for tracking time spent
+      sessionStorage.setItem(`${topicName}_view_start`, Date.now().toString());
+      
+      // Simulate progress steps (this would be integrated with real API progress in production)
+      const simulateProgress = () => {
+        const steps = [...generationSteps];
+        let currentStepIndex = 0;
+        
+        const interval = setInterval(() => {
+          if (currentStepIndex >= steps.length) {
+            clearInterval(interval);
+            return;
+          }
+          
+          // Update current step
+          const currentStep = steps[currentStepIndex];
+          setGenerationStep(currentStep.label);
+          
+          // Mark step as complete
+          steps[currentStepIndex] = { ...currentStep, complete: true };
+          setGenerationSteps(steps);
+          
+          // Update progress percentage
+          const progress = Math.round(((currentStepIndex + 1) / steps.length) * 100);
+          setGenerationProgress(progress);
+          
+          currentStepIndex++;
+        }, 800); // Simulate steps with delay
+        
+        return interval;
+      };
+      
+      // Start progress simulation
+      const progressInterval = simulateProgress();
+      
       // Fetch lecture content from the API
       const response = await axios.post(`${API_URL}/en/api/web/lecture`, {
         topic: topicName
       });
       
+      // Clear the interval when response is received
+      clearInterval(progressInterval);
+      
       if (response.data && response.data.lecture) {
         console.log(`Loaded lecture for: ${topicName}`);
-        setCurrentLecture(response.data.lecture);
+        
+        // Ensure all progress steps are complete
+        setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
+        setGenerationProgress(100);
+        setGenerationStep("Lecture ready!");
+        
+        // Short delay before showing lecture to ensure progress is visible
+        setTimeout(() => {
+          setCurrentLecture(response.data.lecture);
+          
+          // Mark topic as viewed in progress with consistent format
+          const viewedStatus = {
+            viewed: true,
+            lastViewed: new Date().toISOString(),
+            completed: false
+          };
+          
+          // Update topic progress on server
+          updateTopicProgress(topicName, viewedStatus);
+          
+          // Calculate time spent for analytics
+          const startTime = sessionStorage.getItem(`${topicName}_view_start`);
+          const timeSpent = startTime ? Math.floor((Date.now() - parseInt(startTime)) / 1000) : 0;
+          
+          // Track topic view in analytics
+          trackAnalytics('topic-view', {
+            topic: topicName,
+            timeSpent: timeSpent
+          });
+        }, 500);
       } else {
         console.error("Invalid lecture data format:", response.data);
         // Fallback to sample lecture if API fails
         const sampleLecture = generateSampleLecture(topicName);
-        setCurrentLecture(sampleLecture);
+        
+        // Ensure all steps are completed
+        setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
+        setGenerationProgress(100);
+        
+        setTimeout(() => {
+          setCurrentLecture(sampleLecture);
+        }, 500);
       }
     } catch (error) {
       console.error("Error fetching lecture:", error);
       // Fallback to sample lecture if API fails
       const sampleLecture = generateSampleLecture(topicName);
-      setCurrentLecture(sampleLecture);
+      
+      // Ensure all steps are completed but indicate error
+      setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
+      setGenerationProgress(100);
+      setGenerationStep("Generated fallback lecture due to error");
+      
+      setTimeout(() => {
+        setCurrentLecture(sampleLecture);
+      }, 500);
     } finally {
-      setIsLoadingLecture(false);
+      // Keep loading state active until lecture is displayed
+      setTimeout(() => {
+        setIsLoadingLecture(false);
+      }, 1000);
     }
   };
 
@@ -753,54 +855,174 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
     };
   };
 
-  // Update progress for a topic
-  const updateTopicProgress = (topic, status) => {
-    const newProgress = { ...topicProgress };
-    
-    // If this is a new topic we're tracking
-    if (!newProgress[topic]) {
-      newProgress[topic] = status;
-    } else {
-      // Update existing topic with new status properties
-      newProgress[topic] = { ...newProgress[topic], ...status };
+  // Track analytics for user interactions
+  const trackAnalytics = async (eventType, data) => {
+    try {
+      console.log(`Tracking analytics event: ${eventType}`, data);
+      let endpoint = '';
+      
+      switch(eventType) {
+        case 'topic-view':
+          endpoint = '/analytics/topic-view';
+          break;
+        case 'topic-completion':
+          endpoint = '/analytics/topic-completion';
+          break;
+        case 'exercise-activity':
+          endpoint = '/analytics/exercise-activity';
+          break;
+        case 'rate-topic':
+          endpoint = '/analytics/rate-topic';
+          break;
+        default:
+          console.warn(`Unknown analytics event type: ${eventType}`);
+          return;
+      }
+      
+      // Send analytics data to server
+      const response = await axios.post(`${API_URL}/en/api/web${endpoint}`, data);
+      console.log(`Analytics tracked successfully for ${eventType}:`, response.data);
+      return true;
+    } catch (error) {
+      console.error(`Error tracking analytics for ${eventType}:`, error);
+      // Non-critical error, so we don't need to fail the user action
+      return false;
     }
-    
-    setTopicProgress(newProgress);
-    localStorage.setItem("topicProgress", JSON.stringify(newProgress));
+  };
+
+  // Update topic progress
+  const updateTopicProgress = async (topic, status) => {
+    try {
+      console.log(`Updating progress for topic: ${topic}`, status);
+      
+      // Check authentication
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn("No authentication token found. Topic progress may not be saved on the server.");
+      }
+      
+      // Prepare server data format
+      const requestData = {
+        topic,
+        viewed: true,
+        completed: status.completed === true
+      };
+      
+      // Add additional fields only if defined
+      if (status.quizScore) requestData.quizScore = status.quizScore;
+      if (status.codeScore) requestData.codeScore = status.codeScore;
+      
+      console.log("Sending data to server:", requestData);
+      
+      const response = await axios.post(`${API_URL}/en/api/web/progress`, requestData);
+      
+      if (response.data && response.data.progress) {
+        console.log(`Progress updated successfully for topic: ${topic}`);
+        
+        // Update local progress state
+        const updatedProgress = { ...topicProgress };
+        if (!updatedProgress[topic]) {
+          updatedProgress[topic] = status;
+        } else {
+          updatedProgress[topic] = {
+            ...updatedProgress[topic],
+            ...status
+          };
+        }
+        
+        // Update state and localStorage
+        setTopicProgress(updatedProgress);
+        localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
+        
+        return true;
+      } else {
+        console.warn("Server response does not contain progress data");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating topic progress:", error);
+      
+      // Fallback to local update
+      console.log("Using local fallback for topic progress");
+      const updatedProgress = { ...topicProgress };
+      
+      if (!updatedProgress[topic]) {
+        updatedProgress[topic] = {
+          viewed: true,
+          completed: status.completed || false,
+          lastViewed: new Date().toISOString()
+        };
+      } else {
+        updatedProgress[topic] = {
+          ...updatedProgress[topic],
+          viewed: true,
+          lastViewed: new Date().toISOString()
+        };
+        
+        if (status.completed) {
+          updatedProgress[topic].completed = true;
+          updatedProgress[topic].completedAt = new Date().toISOString();
+        }
+        
+        if (status.quizScore) updatedProgress[topic].quizScore = status.quizScore;
+        if (status.codeScore) updatedProgress[topic].codeScore = status.codeScore;
+      }
+      
+      // Update state and localStorage
+      setTopicProgress(updatedProgress);
+      localStorage.setItem("topicProgress", JSON.stringify(updatedProgress));
+      
+      return true;
+    }
   };
 
   // Handle rating submission
   const handleRatingSubmit = async () => {
-    if (currentLecture && userRating > 0) {
-      try {
-      // In a real implementation, this would be an API call
-        await axios.post(`${API_URL}/en/api/web/rate-lecture`, {
-          topic: currentLecture.title,
-          rating: userRating
-        });
-        
-      console.log(`Submitted rating ${userRating} for lecture: ${currentLecture.title}`);
+    if (!userRating || userRating === 0) {
+      console.warn("Cannot submit rating: No rating selected");
+      return;
+    }
+
+    try {
+      const topicName = decodeURIComponent(topic);
+      console.log(`Submitting rating ${userRating} for lecture: ${topicName}`);
       
-        // Mark the lecture as viewed in progress
-        updateTopicProgress(currentLecture.title, { viewed: true });
+      // Track rating in analytics
+      const ratingData = {
+        topic: topicName,
+        rating: userRating
+      };
+      await trackAnalytics('rate-topic', ratingData);
       
-      // Reset rating after submission
+      // Reset rating after successful submission
       setUserRating(0);
-      } catch (error) {
-        console.error("Error submitting rating:", error);
-      }
+      
+      // Show success message or feedback
+      alert("Thank you for your rating!");
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      alert("Failed to submit rating. Please try again later.");
     }
   };
 
   // Start practice mode
   const startPractice = () => {
-    if (!currentLecture) return;
+    if (!topic) {
+      console.error("Cannot start practice: No topic specified");
+      return;
+    }
     
-    // Mark the lecture as viewed before starting practice
-    updateTopicProgress(currentLecture.title, { viewed: true });
-    
-    // Navigate to practice page
-    navigate(`/skills/practice/${encodeURIComponent(currentLecture.title)}`);
+    try {
+      const decodedTopic = decodeURIComponent(topic);
+      
+      // Log the transition
+      console.log(`Navigating to practice page for topic: ${decodedTopic}`);
+      
+      // Navigate to the practice page
+      navigate(`/skills/practice/${topic}`);
+    } catch (error) {
+      console.error("Error navigating to practice page:", error);
+    }
   };
 
   // Export lecture
@@ -830,7 +1052,7 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
     
     // New format as object with properties
     if (typeof progress === 'object') {
-      return progress.completed === true;
+      return progress.completed === true || !!progress.completedAt;
     }
     
     // Old format as string
@@ -848,11 +1070,11 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
     
     // New format as object with properties
     if (typeof progress === 'object') {
-      return progress.viewed === true;
+      return progress.viewed === true || !!progress.lastViewed;
     }
     
-    // Old format had no 'viewed' status
-    return false;
+    // Old format had no 'viewed' status, but any progress means it was viewed
+    return !!progress;
   };
 
   // Function to enhance lecture content with icons and styling
@@ -917,26 +1139,93 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
     }
   };
 
+  // Debug useEffect to check if analytics is working
+  useEffect(() => {
+    if (topic) {
+      try {
+        const decodedTopic = decodeURIComponent(topic);
+        console.log("=== LECTURE PAGE ANALYTICS DEBUG ===");
+        console.log(`Current topic: ${decodedTopic}`);
+        console.log(`Topic progress state:`, topicProgress);
+        console.log(`Is topic viewed: ${isLectureViewed(decodedTopic)}`);
+        console.log(`Is topic completed: ${isTopicCompleted(decodedTopic)}`);
+        
+        // Check if we have a stored view start time
+        const viewStartTime = sessionStorage.getItem(`${decodedTopic}_view_start`);
+        console.log(`View start time: ${viewStartTime ? new Date(parseInt(viewStartTime)).toLocaleString() : 'Not set'}`);
+        
+        console.log("=== END DEBUG ===");
+      } catch (error) {
+        console.error("Error in debug logging:", error);
+      }
+    }
+  }, [topic, topicProgress]);
+
   return (
     <LeftBar>
       <div className={`${isMobile ? "mt-16" : ""} p-4 bg-dark-50 dark:bg-dark-950 min-h-screen`}>
         <div className="max-w-5xl mx-auto">
           {/* Header with back button */}
-          <div className="mb-6 flex items-center">
-            <Link 
-              to="/skills" 
-              className="mr-4 p-2 rounded-full hover:bg-dark-100 dark:hover:bg-dark-800 transition-colors"
-            >
-              <ArrowLeft className="text-dark-500 dark:text-dark-400" />
-            </Link>
-            <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-dark-900 dark:text-white">
-              {isLoadingLecture ? "Loading lecture..." : currentLecture?.title || decodeURIComponent(topic)}
-            </h1>
-              {!isLoadingLecture && currentLecture && isTopicCompleted(currentLecture.title) && (
-                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800/40 dark:text-green-300">
-                  <CheckCircle size={12} className="mr-1" /> Completed
-                </span>
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => navigate('/skills')}
+                className="px-3 py-1.5 text-sm rounded-lg border border-dark-200 dark:border-dark-700 bg-base-white dark:bg-dark-800 flex items-center space-x-1 hover:bg-dark-100 dark:hover:bg-dark-700 transition-colors"
+              >
+                <ArrowLeft size={16} />
+                <span>Back to Skills</span>
+              </button>
+              
+              {isTopicCompleted(decodeURIComponent(topic)) && (
+                <div className="flex items-center space-x-1 px-2 py-1.5 text-sm rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                  <CheckCircle size={16} />
+                  <span>Completed</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex space-x-2">
+              <button
+                onClick={startPractice}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors flex items-center space-x-1"
+              >
+                <Code size={16} />
+                <span>Practice Now</span>
+              </button>
+              
+              {/* Next Topic Button */}
+              {roadmap.length > 0 && (
+                (() => {
+                  const decodedTopic = decodeURIComponent(topic);
+                  const currentIndex = roadmap.findIndex(item => {
+                    const itemName = item.includes(":") ? item.split(":")[0].trim() : item;
+                    return itemName === decodedTopic;
+                  });
+                  
+                  if (currentIndex < roadmap.length - 1) {
+                    const nextTopic = roadmap[currentIndex + 1];
+                    const nextTopicName = nextTopic.includes(":") ? nextTopic.split(":")[0].trim() : nextTopic;
+                    
+                    // Check if next topic is accessible
+                    const isNextAccessible = isTopicCompleted(decodedTopic);
+                    
+                    return (
+                      <button
+                        onClick={() => isNextAccessible && navigate(`/skills/lecture/${encodeURIComponent(nextTopicName)}`)}
+                        disabled={!isNextAccessible}
+                        className={`px-3 py-1.5 text-sm rounded-lg flex items-center space-x-1 ${
+                          isNextAccessible
+                            ? "bg-dark-100 dark:bg-dark-800 hover:bg-dark-200 dark:hover:bg-dark-700"
+                            : "bg-dark-100/50 dark:bg-dark-800/50 text-dark-400 dark:text-dark-500 cursor-not-allowed"
+                        }`}
+                      >
+                        <span>Next Topic</span>
+                        <ArrowRight size={16} />
+                      </button>
+                    );
+                  }
+                  return null;
+                })()
               )}
             </div>
           </div>
@@ -1030,9 +1319,42 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
                 </div>
               ) : isLoadingLecture ? (
                     <div className="flex flex-col items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mb-4"></div>
-                  <p className="text-dark-600 dark:text-dark-300">Generating lecture content...</p>
-                </div>
+                      <div className="w-full max-w-md mb-8">
+                        <div className="flex justify-between text-sm text-dark-500 dark:text-dark-300 mb-2">
+                          <span>{generationStep}</span>
+                          <span>{generationProgress}%</span>
+                        </div>
+                        <div className="h-2 bg-dark-200 dark:bg-dark-700 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary-500 rounded-full transition-all duration-500"
+                            style={{ width: `${generationProgress}%` }}
+                          ></div>
+                        </div>
+                        <div className="mt-6 space-y-3">
+                          {generationSteps.map((step, index) => (
+                            <div key={step.id} className="flex items-center">
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center mr-3 ${
+                                step.complete 
+                                  ? "bg-green-500 text-white" 
+                                  : "bg-dark-200 dark:bg-dark-700 text-dark-400 dark:text-dark-500"
+                              }`}>
+                                {step.complete && (
+                                  <CheckCircle size={12} />
+                                )}
+                              </div>
+                              <span className={`text-sm ${
+                                step.complete 
+                                  ? "text-dark-900 dark:text-dark-100" 
+                                  : "text-dark-400 dark:text-dark-500"
+                              }`}>
+                                {step.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-dark-600 dark:text-dark-300">Please wait while we generate your lecture content...</p>
+                    </div>
               ) : currentLecture ? (
                 <>
                       <div className="flex items-center gap-2 mb-4 text-sm text-dark-500 dark:text-dark-300">

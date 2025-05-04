@@ -24,6 +24,7 @@ func RegisterWebRoutes(router *gin.Engine, db *gorm.DB) {
 	lectureController := controllers.NewLectureController(*baseController)
 	chatController := controllers.NewChatController(*baseController)
 	exerciseController := controllers.NewExerciseController(*baseController)
+	progressController := controllers.NewProgressController(*baseController)
 
 	// Public routes for mentors
 	publicRoutes := router.Group("/api")
@@ -46,6 +47,11 @@ func RegisterWebRoutes(router *gin.Engine, db *gorm.DB) {
 		webRoutes.GET("/chat/sessions", chatController.GetChatSessions)
 		webRoutes.GET("/chat/history/:id", chatController.GetChatHistory)
 		webRoutes.DELETE("/chat/all", chatController.DeleteAllChats)
+
+		// Progress tracking endpoints
+		webRoutes.GET("/progress", progressController.GetUserProgress)
+		webRoutes.POST("/progress/topic", progressController.UpdateTopicProgress)
+		webRoutes.GET("/progress/topic/:topic", progressController.GetTopicProgress)
 
 		// Exercise endpoints for authenticated users
 		webRoutes.POST("/exercises", exerciseController.GenerateExercises)
