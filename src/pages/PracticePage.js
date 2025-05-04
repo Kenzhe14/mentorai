@@ -87,7 +87,7 @@ function PracticePage() {
       setIsAccessible(true);
       return;
     }
-
+    
     // If the lecture for this topic has been viewed, always allow practice access
     // This is the main case - user has already seen the lecture for this topic
     if (isLectureViewed(decodedTopic)) {
@@ -259,7 +259,7 @@ function PracticePage() {
           setTimeout(() => {
             const sampleLecture = generateSampleLecture(topicName);
             setCurrentLecture(sampleLecture);
-            setIsLoadingLecture(false);
+          setIsLoadingLecture(false);
           }, 500);
         }
       })
@@ -274,9 +274,9 @@ function PracticePage() {
         setGenerationProgress(100);
         setGenerationStep("Generated fallback exercises due to error");
         
-        setTimeout(() => {
-          const sampleLecture = generateSampleLecture(topicName);
-          setCurrentLecture(sampleLecture);
+    setTimeout(() => {
+      const sampleLecture = generateSampleLecture(topicName);
+      setCurrentLecture(sampleLecture);
           setIsLoadingLecture(false);
         }, 500);
       });
@@ -291,7 +291,7 @@ function PracticePage() {
       setTimeout(() => {
         const sampleLecture = generateSampleLecture(topicName);
         setCurrentLecture(sampleLecture);
-        setIsLoadingLecture(false);
+      setIsLoadingLecture(false);
       }, 500);
     }
   };
@@ -840,7 +840,7 @@ function PracticePage() {
                     const isCurrentCompleted = practiceCompleted;
                     
                     return (
-                      <button
+            <button 
                         onClick={() => isCurrentCompleted && navigate(`/skills/lecture/${encodeURIComponent(nextTopicName)}`)}
                         disabled={!isCurrentCompleted}
                         className={`px-3 py-1.5 text-sm rounded-lg flex items-center space-x-1 ${
@@ -851,7 +851,7 @@ function PracticePage() {
                       >
                         <span>Next Topic</span>
                         <ArrowRight size={16} />
-                      </button>
+            </button>
                     );
                   }
                   return null;

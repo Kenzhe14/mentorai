@@ -180,7 +180,7 @@ function Dashboard() {
                             Activity
                         </button>
                     </div>
-                </div>
+                    </div>
 
                 {/* Overview Tab */}
                 {activeTab === "overview" && (
@@ -221,16 +221,16 @@ function Dashboard() {
                                         <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                                     </div>
                                 </div>
-                            </div>
+                    </div>
                             <div className="bg-white dark:bg-dark-900 p-4 rounded-xl shadow-md border border-dark-200/10 dark:border-dark-800/50">
                                 <div className="flex items-center justify-between">
-                                    <div>
+                                                        <div>
                                         <span className="text-sm text-dark-500 dark:text-dark-400">Average Quiz Score</span>
                                         <h3 className="text-2xl font-bold text-dark-900 dark:text-white">{Math.round(stats.avgQuizScore)}%</h3>
-                                    </div>
+                                                        </div>
                                     <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-lg">
                                         <Award className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-                                    </div>
+                                        </div>
                                 </div>
                             </div>
                         </div>

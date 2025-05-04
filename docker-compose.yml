@@ -1,66 +1,52 @@
 version: '3.8'
 
 services:
-  # Backend service
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    restart: unless-stopped
-    environment:
-      - PORT=5000
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=mentoruser
-      - DB_PASSWORD=mentoruserpassword
-      - DB_NAME=mentordb
-      - JWT_SECRET=changethissecretinproduction
-      - ENVIRONMENT=development
-    volumes:
-      - backend_uploads:/app/uploads
-    ports:
-      - "5000:5000"
-    depends_on:
-      - postgres
-    networks:
-      - mentor_network
-
-  # Frontend service
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    restart: unless-stopped
+    image: ${FRONTEND_IMAGE:-mentorai/frontend:latest}
+    restart: always
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
     networks:
-      - mentor_network
+      - mentorai-network
 
-  # Database service
-  postgres:
-    image: postgres:14-alpine
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=mentoruser
-      - POSTGRES_PASSWORD=mentoruserpassword
-      - POSTGRES_DB=mentordb
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  backend:
+    image: ${BACKEND_IMAGE:-mentorai/backend:latest}
+    restart: always
     ports:
-      - "5432:5432"
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-mentorai}
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret}
+      - APP_ENV=${APP_ENV:-production}
+    depends_on:
+      - postgres
+    volumes:
+      - backend-uploads:/app/uploads
     networks:
-      - mentor_network
+      - mentorai-network
 
-# Define networks
-networks:
-  mentor_network:
-    driver: bridge
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=${DB_NAME:-mentorai}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - mentorai-network
 
-# Define volumes
 volumes:
-  postgres_data:
-    driver: local
-  backend_uploads:
-    driver: local 
+  postgres-data:
+  backend-uploads:
+
+networks:
+  mentorai-network:
+    driver: bridge 

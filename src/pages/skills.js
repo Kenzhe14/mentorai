@@ -506,7 +506,7 @@ function Skills() {
       updateTopicProgress(topic, viewedStatus);
       
       // Navigate to the lecture page using the dedicated route
-      navigate(`/skills/lecture/${encodeURIComponent(topic)}`);
+    navigate(`/skills/lecture/${encodeURIComponent(topic)}`);
       
     } catch (error) {
       console.error("Error loading lecture:", error);

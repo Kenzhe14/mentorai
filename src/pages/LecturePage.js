@@ -179,7 +179,7 @@ function LecturePage() {
         const interval = setInterval(() => {
           if (currentStepIndex >= steps.length) {
             clearInterval(interval);
-            return;
+          return;
           }
           
           // Update current step
@@ -220,7 +220,7 @@ function LecturePage() {
         setGenerationStep("Lecture ready!");
         
         // Short delay before showing lecture to ensure progress is visible
-        setTimeout(() => {
+    setTimeout(() => {
           setCurrentLecture(response.data.lecture);
           
           // Mark topic as viewed in progress with consistent format
@@ -246,14 +246,14 @@ function LecturePage() {
       } else {
         console.error("Invalid lecture data format:", response.data);
         // Fallback to sample lecture if API fails
-        const sampleLecture = generateSampleLecture(topicName);
+      const sampleLecture = generateSampleLecture(topicName);
         
         // Ensure all steps are completed
         setGenerationSteps(prev => prev.map(step => ({ ...step, complete: true })));
         setGenerationProgress(100);
         
         setTimeout(() => {
-          setCurrentLecture(sampleLecture);
+      setCurrentLecture(sampleLecture);
         }, 500);
       }
     } catch (error) {
@@ -272,7 +272,7 @@ function LecturePage() {
     } finally {
       // Keep loading state active until lecture is displayed
       setTimeout(() => {
-        setIsLoadingLecture(false);
+      setIsLoadingLecture(false);
       }, 1000);
     }
   };
@@ -1182,8 +1182,8 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
                   <span>Completed</span>
                 </div>
               )}
-            </div>
-            
+          </div>
+
             <div className="flex space-x-2">
               <button
                 onClick={startPractice}
@@ -1354,7 +1354,7 @@ if (${formatTopicForCode.toLowerCase()}.initialize()) {
                         </div>
                       </div>
                       <p className="text-dark-600 dark:text-dark-300">Please wait while we generate your lecture content...</p>
-                    </div>
+                </div>
               ) : currentLecture ? (
                 <>
                       <div className="flex items-center gap-2 mb-4 text-sm text-dark-500 dark:text-dark-300">
